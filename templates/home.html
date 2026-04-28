@@ -1,0 +1,9 @@
+<h1>Home</h1>
+
+{% if user.is_authenticated %}
+    <p>Logado como: {{ user.username }} ({{ user.tipo }})</p>
+    <a href="/marketplace/criar/">Criar anúncio</a>
+{% else %}
+    <a href="/users/login/">Login</a>
+    <a href="/users/register/">Cadastrar</a>
+{% endif %}
