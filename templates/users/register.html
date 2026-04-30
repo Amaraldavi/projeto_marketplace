@@ -2,8 +2,21 @@
 
 <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
+
+    <label>Usuário:</label>
+    <input type="text" name="username">
+
+    <br><br>
+
+    <label>Senha:</label>
+    <input type="password" name="password">
+
+    <br><br>
+
+    <label>É loja?</label>
+    <input type="checkbox" name="is_store">
+
+    <br><br>
+
     <button type="submit">Cadastrar</button>
 </form>
-
-<a href="/users/login/">Já tenho conta</a>

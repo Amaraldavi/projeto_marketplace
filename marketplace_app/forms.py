@@ -1,25 +1,26 @@
 from django import forms
 from .models import Listing
 
+
 class ListingForm(forms.ModelForm):
+
     class Meta:
         model = Listing
-        fields = ['titulo', 'descricao', 'categoria', 'preco', 'tipo', 'condicao']
+        fields = [
+            'title',
+            'description',
+            'price',
+            'category',
+            'listing_type',
+            'condition',
+        ]
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user')
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # 🚨 REGRA: PJ não pode TROCA
-        if self.user.tipo == 'PJ':
-            self.fields['tipo'].choices = [('VENDA', 'Venda')]
-
-    def clean(self):
-        cleaned_data = super().clean()
-        tipo = cleaned_data.get('tipo')
-
-        # 🚨 VALIDAÇÃO FINAL
-        if self.user.tipo == 'PJ' and tipo == 'TROCA':
-            raise forms.ValidationError("Lojas não podem criar anúncios de troca.")
-
-        return cleaned_data
+        # Se for loja, remove opção "Troca"
+        if self.user and self.user.is_store:
+            self.fields['listing_type'].choices = [
+                ('sale', 'Venda')
+            ]

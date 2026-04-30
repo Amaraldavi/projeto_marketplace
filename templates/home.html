@@ -1,9 +1,13 @@
 <h1>Home</h1>
 
 {% if user.is_authenticated %}
-    <p>Logado como: {{ user.username }} ({{ user.tipo }})</p>
-    <a href="/marketplace/criar/">Criar anúncio</a>
+    <p>
+        Logado como: {{ user.username }}
+        ({{ user.is_store|yesno:"Loja,Usuário" }})
+    </p>
+
+    <a href="/criar-anuncio/">Criar anúncio</a>
 {% else %}
-    <a href="/users/login/">Login</a>
-    <a href="/users/register/">Cadastrar</a>
+    <a href="/login/">Login</a>
+    <a href="/register/">Cadastrar</a>
 {% endif %}
