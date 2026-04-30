@@ -6,8 +6,9 @@
         ({{ user.is_store|yesno:"Loja,Usuário" }})
     </p>
 
-    <a href="/criar-anuncio/">Criar anúncio</a>
+    <a href="{% url 'criar_anuncio' %}">Criar anúncio</a>
+    <a href="{% url 'logout' %}">Sair</a>
 {% else %}
-    <a href="/login/">Login</a>
-    <a href="/register/">Cadastrar</a>
+    <a href="{% url 'login' %}">Login</a>
+    <a href="{% url 'register' %}">Cadastrar</a>
 {% endif %}

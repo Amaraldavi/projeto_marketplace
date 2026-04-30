@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate, login, logout, get_user_model
 from .forms import ListingForm
 from .models import Listing
 
@@ -22,7 +23,6 @@ def criar_anuncio(request):
         form = ListingForm(user=request.user)
 
     return render(request, 'marketplace_app/criar_anuncio.html', {'form': form})
-from django.contrib.auth import authenticate, login
 
 
 def user_login(request):
@@ -37,8 +37,12 @@ def user_login(request):
             return redirect('home')
 
     return render(request, 'users/login.html')
-from django.contrib.auth.models import User
-from django.contrib.auth import login
+
+
+def user_logout(request):
+    logout(request)
+    return redirect('home')
+
 
 def register(request):
     if request.method == 'POST':
@@ -46,7 +50,7 @@ def register(request):
         password = request.POST.get('password')
         is_store = request.POST.get('is_store') == 'on'
 
-        user = User.objects.create_user(
+        user = get_user_model().objects.create_user(
             username=username,
             password=password,
             is_store=is_store
