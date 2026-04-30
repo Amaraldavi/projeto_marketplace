@@ -2,11 +2,11 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from .forms import ListingForm
-from .models import Listing
+from .models import Listing, ListingImage
 
 
 def home(request):
-    anuncios = Listing.objects.all()
+    anuncios = Listing.objects.prefetch_related('images').all()
     return render(request, 'home.html', {'anuncios': anuncios})
 
 
@@ -18,6 +18,12 @@ def criar_anuncio(request):
             anuncio = form.save(commit=False)
             anuncio.seller = request.user
             anuncio.save()
+
+            # Processar imagem
+            image = request.FILES.get('image')
+            if image:
+                ListingImage.objects.create(listing=anuncio, image=image)
+
             return redirect('home')
     else:
         form = ListingForm(user=request.user)

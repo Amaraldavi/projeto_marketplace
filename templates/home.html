@@ -12,3 +12,21 @@
     <a href="{% url 'login' %}">Login</a>
     <a href="{% url 'register' %}">Cadastrar</a>
 {% endif %}
+
+<h2>Anúncios</h2>
+{% for anuncio in anuncios %}
+    <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+        <h3>{{ anuncio.title }}</h3>
+        <p>{{ anuncio.description }}</p>
+        <p>Preço: R$ {{ anuncio.price }}</p>
+        <p>Categoria: {{ anuncio.category.name }}</p>
+        <p>Tipo: {{ anuncio.get_listing_type_display }}</p>
+        <p>Condição: {{ anuncio.get_condition_display }}</p>
+        <p>Vendedor: {{ anuncio.seller.username }}</p>
+        {% for image in anuncio.images.all %}
+            <img src="{{ image.image.url }}" alt="{{ anuncio.title }}" style="max-width: 200px; max-height: 200px;">
+        {% endfor %}
+    </div>
+{% empty %}
+    <p>Nenhum anúncio encontrado.</p>
+{% endfor %}

@@ -2,7 +2,16 @@ from django import forms
 from .models import Listing
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
 class ListingForm(forms.ModelForm):
+
+    image = forms.ImageField(
+        required=False,
+        help_text='Selecione uma imagem para o anúncio.'
+    )
 
     class Meta:
         model = Listing
