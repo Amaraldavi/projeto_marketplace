@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tech Hub - Marketplace{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a href="/" class="logo">TECH HUB</a>
+            
+            <div class="search-bar">
+                <input type="text" placeholder="Buscar...">
+                <button type="submit">🔍</button>
+            </div>
+
+            <div class="nav-buttons">
+                <button id="theme-toggle" class="btn-theme" type="button" aria-label="Alternar tema">
+                    <span class="material-icons">dark_mode</span>
+                </button>
+                {% if user.is_authenticated %}
+                    <span style="margin-right: 1rem;">Olá, {{ user.username }}</span>
+                    <a href="{% url 'logout' %}" class="btn-primary">Sair</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn-primary">Login</a>
+                    <a href="{% url 'register' %}" class="btn-secondary">Cadastro</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3><span class="material-icons">store</span> Tech Hub</h3>
+                <p>Sua plataforma de confiança para comprar e vender produtos tecnológicos.</p>
+            </div>
+            <div class="footer-section">
+                <h3><span class="material-icons">support</span> Suporte</h3>
+                <p><a href="#">Central de Ajuda</a></p>
+                <p><a href="#">Contato</a></p>
+                <p><a href="#">Política de Privacidade</a></p>
+            </div>
+            <div class="footer-section">
+                <h3><span class="material-icons">business</span> Empresa</h3>
+                <p><a href="#">Sobre Nós</a></p>
+                <p><a href="#">Carreiras</a></p>
+                <p><a href="#">Blog</a></p>
+            </div>
+            <div class="footer-section">
+                <h3><span class="material-icons">connect_without_contact</span> Redes Sociais</h3>
+                <p><a href="#"><span class="material-icons">facebook</span> Facebook</a></p>
+                <p><a href="#"><span class="material-icons">instagram</span> Instagram</a></p>
+                <p><a href="#"><span class="material-icons">twitter</span> Twitter</a></p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Tech Hub Marketplace. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        const themeToggle = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const body = document.body;
+
+        function applyTheme(theme) {
+            body.classList.toggle('light-mode', theme === 'light');
+            localStorage.setItem('theme', theme);
+            const icon = themeToggle.querySelector('.material-icons');
+            icon.textContent = theme === 'light' ? 'light_mode' : 'dark_mode';
+        }
+
+        if (savedTheme === 'light') {
+            applyTheme('light');
+        } else {
+            applyTheme('dark');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const nextTheme = body.classList.contains('light-mode') ? 'dark' : 'light';
+            applyTheme(nextTheme);
+        });
+    </script>
+</body>
+</html>

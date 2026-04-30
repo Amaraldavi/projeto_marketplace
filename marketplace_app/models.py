@@ -68,6 +68,33 @@ class Listing(models.Model):
         (SOLD, 'Vendido'),
     ]
 
+class Listing(models.Model):
+    SALE = 'sale'
+    TRADE = 'trade'
+
+    LISTING_TYPE_CHOICES = [
+        (SALE, 'Venda'),
+        (TRADE, 'Troca'),
+    ]
+
+    NEW = 'new'
+    USED = 'used'
+
+    CONDITION_CHOICES = [
+        (NEW, 'Novo'),
+        (USED, 'Usado'),
+    ]
+
+    ACTIVE = 'active'
+    PAUSED = 'paused'
+    SOLD = 'sold'
+
+    STATUS_CHOICES = [
+        (ACTIVE, 'Ativo'),
+        (PAUSED, 'Pausado'),
+        (SOLD, 'Vendido'),
+    ]
+
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='listings')
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
 
@@ -79,7 +106,19 @@ class Listing(models.Model):
     condition = models.CharField(max_length=10, choices=CONDITION_CHOICES)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ACTIVE)
 
+    # Novos campos para destaques
+    is_featured = models.BooleanField(default=False, help_text="Anúncio patrocinado")
+    is_store_featured = models.BooleanField(default=False, help_text="Destaque para anúncios de loja")
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.seller.is_store and self.listing_type == self.TRADE:
+            raise ValueError("Lojas não podem criar anúncios de troca.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
 
     def save(self, *args, **kwargs):
         if self.seller.is_store and self.listing_type == self.TRADE:

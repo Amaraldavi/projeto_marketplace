@@ -105,9 +105,24 @@ USE_TZ = True
 # STATIC / MEDIA
 # =========================
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# =========================
+# EMAIL CONFIGURATION
+# =========================
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desenvolvimento - mostra emails no console
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Para produção
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your-email@gmail.com'
+# EMAIL_HOST_PASSWORD = 'your-app-password'
+# DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

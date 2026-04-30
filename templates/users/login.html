@@ -1,19 +1,62 @@
-<h2>Login</h2>
+{% extends 'base.html' %}
 
-<form method="post">
-    {% csrf_token %}
-    
-    <label>Usuário:</label>
-    <input type="text" name="username">
+{% block title %}Login - Tech Hub{% endblock %}
 
-    <br><br>
+{% block content %}
+<div class="auth-container">
+    <div class="auth-box">
+        <h2><span class="material-icons">login</span> Login</h2>
 
-    <label>Senha:</label>
-    <input type="password" name="password">
+        <form method="post">
+            {% csrf_token %}
 
-    <br><br>
+            <div class="form-group">
+                <label for="username"><span class="material-icons">person</span> Usuário</label>
+                <input type="text" id="username" name="username" required>
+            </div>
 
-    <button type="submit">Entrar</button>
-</form>
+            <div class="form-group">
+                <label for="password"><span class="material-icons">lock</span> Senha</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <span class="material-icons" id="password-icon">visibility</span>
+                    </button>
+                </div>
+            </div>
 
-<a href="/register/">Criar conta</a>
+            <div class="checkbox-container">
+                <input type="checkbox" id="remember" name="remember">
+                <label for="remember">Lembrar de mim</label>
+            </div>
+
+            <div class="form-group">
+                <button type="submit"><span class="material-icons">login</span> Entrar</button>
+            </div>
+        </form>
+
+        <div class="auth-links">
+            <div class="forgot-password">
+                <a href="{% url 'password_reset' %}"><span class="material-icons">help</span> Esqueceu a senha?</a>
+            </div>
+            Não tem conta? <a href="{% url 'register' %}"><span class="material-icons">person_add</span> Criar conta</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const passwordIcon = document.getElementById('password-icon');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordIcon.textContent = 'visibility_off';
+    } else {
+        passwordInput.type = 'password';
+        passwordIcon.textContent = 'visibility';
+    }
+}
+</script>
+
+{% endblock %}
