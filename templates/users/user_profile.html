@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Perfil de {{ profile_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title"><span class="material-icons">person</span> Perfil de {{ profile_user.username }}</h2>
+
+    <div class="profile-public-grid">
+        <div class="profile-public-card">
+            <div class="profile-avatar">
+                {% if profile_user.profile_picture %}
+                    <img src="{{ profile_user.profile_picture.url }}" alt="Foto de {{ profile_user.username }}">
+                {% else %}
+                    <span class="material-icons">person</span>
+                {% endif %}
+            </div>
+            <div class="profile-summary">
+                <h3>{{ profile_user.username }}</h3>
+                {% if profile_user.first_name or profile_user.last_name %}
+                    <p>{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+                {% endif %}
+                <p>{{ profile_user.email }}</p>
+                <p><strong>Tipo:</strong> {% if profile_user.is_store %}Loja{% else %}Usuário{% endif %}</p>
+
+                {% if profile_user.is_store and profile %}
+                    <p><strong>CNPJ:</strong> {{ profile.cnpj }}</p>
+                    <p><strong>Razão Social:</strong> {{ profile.razao_social }}</p>
+                    {% if profile.verified %}
+                        <p class="verified-badge"><span class="material-icons">verified</span> Loja Verificada</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="profile-form-card">
+            <h3>Anúncios ativos</h3>
+            {% if listings %}
+                <div class="products-grid">
+                    {% for anuncio in listings %}
+                        <div class="product-card">
+                            <div class="product-image">
+                                {% if anuncio.images.all %}
+                                    <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
+                                {% else %}
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #00d4ff, #0066ff); font-size: 3rem;"><span class="material-icons">devices</span></div>
+                                {% endif %}
+                            </div>
+                            <div class="product-info">
+                                <h3 class="product-title">{{ anuncio.title }}</h3>
+                                <p class="product-description">{{ anuncio.description|truncatechars:100 }}</p>
+                                <div class="product-price">R$ {{ anuncio.price|floatformat:2 }}</div>
+                                <div class="product-actions">
+                                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p><span class="material-icons" style="font-size: 3rem; color: #999;">inventory_2</span></p>
+                    <p>Este usuário ainda não possui anúncios ativos.</p>
+                </div>
+            {% endif %}
+
+            <div style="margin-top: 1.5rem;">
+                <a href="{% url 'home' %}" class="btn-secondary">Voltar para o Marketplace</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

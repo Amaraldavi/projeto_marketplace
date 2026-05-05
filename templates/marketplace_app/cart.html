@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Carrinho{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title"><span class="material-icons">shopping_cart</span> Meu Carrinho</h2>
+
+    {% if items %}
+        <div class="cart-grid">
+            <div class="cart-items">
+                {% for item in items %}
+                <div class="cart-item-card">
+                    <div class="cart-item-content">
+                        <h3>{{ item.listing.title }}</h3>
+                        <p>{{ item.listing.description|truncatechars:100 }}</p>
+                        <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
+                        <div class="product-actions">
+                            <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
+                            <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="cart-summary">
+                <div class="summary-card">
+                    <h3>Resumo do carrinho</h3>
+                    <p>Total: <strong>R$ {{ total|floatformat:2 }}</strong></p>
+                    <p>Itens: <strong>{{ items|length }}</strong></p>
+                    <a href="{% url 'home' %}" class="btn-details">Continuar comprando</a>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p><span class="material-icons" style="font-size: 3rem; color: #999;">shopping_cart</span></p>
+            <p>Seu carrinho está vazio.</p>
+            <a href="{% url 'home' %}" class="btn-secondary">Ver produtos</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

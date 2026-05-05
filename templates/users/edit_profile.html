@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Perfil{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title"><span class="material-icons">account_circle</span> Editar Perfil</h2>
+
+    <div class="profile-edit-grid">
+        <div class="profile-card">
+            <div class="profile-avatar">
+                {% if user.profile_picture %}
+                <img src="{{ user.profile_picture.url }}" alt="Foto de {{ user.username }}">
+                {% else %}
+                <span class="material-icons">person</span>
+                {% endif %}
+            </div>
+            <div class="profile-summary">
+                <h3>{{ user.username }}</h3>
+                <p>{{ user.email }}</p>
+                <p>{{ user.first_name }} {{ user.last_name }}</p>
+                <p>{% if is_store %}Conta Loja{% else %}Conta Pessoal{% endif %}</p>
+            </div>
+        </div>
+
+        <div class="profile-form-card">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        {{ user_form.username.label_tag }}
+                        {{ user_form.username }}
+                    </div>
+                    <div class="form-group">
+                        {{ user_form.email.label_tag }}
+                        {{ user_form.email }}
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        {{ user_form.first_name.label_tag }}
+                        {{ user_form.first_name }}
+                    </div>
+                    <div class="form-group">
+                        {{ user_form.last_name.label_tag }}
+                        {{ user_form.last_name }}
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        {{ user_form.profile_picture.label_tag }}
+                        {{ user_form.profile_picture }}
+                    </div>
+                    <div class="form-group">
+                        {{ user_form.password.label_tag }}
+                        {{ user_form.password }}
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        {{ profile_form.as_p }}
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-secondary">Salvar alterações</button>
+                    <a href="{% url 'home' %}" class="btn-primary">Voltar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

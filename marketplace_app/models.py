@@ -5,6 +5,7 @@ from django.utils.text import slugify
 
 class User(AbstractUser):
     is_store = models.BooleanField(default=False)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
 
     def __str__(self):
         return self.username
@@ -68,33 +69,6 @@ class Listing(models.Model):
         (SOLD, 'Vendido'),
     ]
 
-class Listing(models.Model):
-    SALE = 'sale'
-    TRADE = 'trade'
-
-    LISTING_TYPE_CHOICES = [
-        (SALE, 'Venda'),
-        (TRADE, 'Troca'),
-    ]
-
-    NEW = 'new'
-    USED = 'used'
-
-    CONDITION_CHOICES = [
-        (NEW, 'Novo'),
-        (USED, 'Usado'),
-    ]
-
-    ACTIVE = 'active'
-    PAUSED = 'paused'
-    SOLD = 'sold'
-
-    STATUS_CHOICES = [
-        (ACTIVE, 'Ativo'),
-        (PAUSED, 'Pausado'),
-        (SOLD, 'Vendido'),
-    ]
-
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='listings')
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
 
@@ -106,19 +80,10 @@ class Listing(models.Model):
     condition = models.CharField(max_length=10, choices=CONDITION_CHOICES)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ACTIVE)
 
-    # Novos campos para destaques
     is_featured = models.BooleanField(default=False, help_text="Anúncio patrocinado")
     is_store_featured = models.BooleanField(default=False, help_text="Destaque para anúncios de loja")
 
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def save(self, *args, **kwargs):
-        if self.seller.is_store and self.listing_type == self.TRADE:
-            raise ValueError("Lojas não podem criar anúncios de troca.")
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.title
 
     def save(self, *args, **kwargs):
         if self.seller.is_store and self.listing_type == self.TRADE:
@@ -135,6 +100,36 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f"Imagem de {self.listing.title}"
+
+
+class Comment(models.Model):
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Comentário de {self.user.username} em {self.listing.title}"
+
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Carrinho de {self.user.username}"
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('cart', 'listing')
+
+    def __str__(self):
+        return f"{self.listing.title} no carrinho de {self.cart.user.username}"
 
 
 class Message(models.Model):

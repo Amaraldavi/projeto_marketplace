@@ -120,11 +120,19 @@
 <div class="container">
     <h2 class="section-title"><span class="material-icons">category</span> Categorias</h2>
     <div class="categories">
+        <!-- Link para ver todos -->
+        <a href="{% url 'home' %}" class="category-card {% if not selected_category %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
+            <span class="material-icons">apps</span>
+            <span>Todos</span>
+        </a>
+        
         {% for category in categories %}
-        <div class="category-card">
+        {% if category.name != 'Todos' %}
+        <a href="?categoria={{ category.slug }}" class="category-card {% if selected_category.id == category.id %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
             <span class="material-icons">devices</span>
             <span>{{ category.name }}</span>
-        </div>
+        </a>
+        {% endif %}
         {% empty %}
         <p style="color: #999; text-align: center; width: 100%;">Nenhuma categoria cadastrada ainda.</p>
         {% endfor %}
@@ -158,16 +166,16 @@
                     <div class="product-price">R$ {{ anuncio.price|floatformat:2 }}</div>
 
                     <div class="product-actions">
-                        <a href="#" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
+                        <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
                         {% if user.is_authenticated %}
-                        <button class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</button>
+                        <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
                         {% else %}
                         <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Comprar</a>
                         {% endif %}
                     </div>
 
                     <p style="font-size: 0.85rem; color: #999999; margin-top: 0.8rem;">
-                        <span class="material-icons">person</span> Vendedor: <strong>{{ anuncio.seller.username }}</strong>
+                        <span class="material-icons">person</span> Vendedor: <strong><a href="{% url 'user_profile' anuncio.seller.username %}" class="seller-link">{{ anuncio.seller.username }}</a></strong>
                         {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700; margin-left: 0.5rem;" title="Patrocinado">star</span>{% endif %}
                         {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88; margin-left: 0.5rem;" title="Loja Verificada">verified</span>{% endif %}
                     </p>
@@ -180,7 +188,14 @@
 
 <!-- PRODUCTS SECTION -->
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">grid_view</span> Todos os Anúncios</h2>
+    <h2 class="section-title">
+        <span class="material-icons">grid_view</span> 
+        {% if selected_category %}
+            Anúncios em {{ selected_category.name }}
+        {% else %}
+            Todos os Anúncios
+        {% endif %}
+    </h2>
 
     {% if anuncios %}
         <div class="products-grid">
@@ -206,16 +221,16 @@
                         <div class="product-price">R$ {{ anuncio.price|floatformat:2 }}</div>
 
                         <div class="product-actions">
-                            <a href="#" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
+                            <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
                             {% if user.is_authenticated %}
-                            <button class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</button>
+                            <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
                             {% else %}
                             <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Comprar</a>
                             {% endif %}
                         </div>
 
                         <p style="font-size: 0.85rem; color: #999999; margin-top: 0.8rem;">
-                            <span class="material-icons">person</span> Vendedor: <strong>{{ anuncio.seller.username }}</strong>
+                            <span class="material-icons">person</span> Vendedor: <strong><a href="{% url 'user_profile' anuncio.seller.username %}" class="seller-link">{{ anuncio.seller.username }}</a></strong>
                             {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700; margin-left: 0.5rem;" title="Patrocinado">star</span>{% endif %}
                             {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88; margin-left: 0.5rem;" title="Loja Verificada">verified</span>{% endif %}
                         </p>
