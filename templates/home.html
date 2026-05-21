@@ -2,6 +2,45 @@
 
 {% block title %}Home - Tech Hub{% endblock %}
 
+{% block extra_css %}
+<style>
+.product-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    margin-top: 1rem !important;
+    padding-top: 0.75rem !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+.product-actions a,
+.product-actions button {
+    display: inline-flex !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 4px !important;
+    text-decoration: none !important;
+    justify-content: center !important;
+    align-items: center !important;
+    color: var(--accent-cyan) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    white-space: normal !important;
+}
+.btn-details {
+    background: rgba(10, 35, 66, 0.75) !important;
+    border: 1.5px solid var(--accent-cyan) !important;
+    color: var(--accent-cyan) !important;
+}
+.btn-buy {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--primary-blue)) !important;
+    color: var(--primary-dark) !important;
+    border: none !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 {% if user.is_authenticated %}
@@ -122,7 +161,7 @@
                         {% if user.is_authenticated %}
                         <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
                         {% else %}
-                        <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Comprar</a>
+                        <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Adicionar ao Carrinho</a>
                         {% endif %}
                     </div>
 
@@ -179,7 +218,7 @@
                             {% if user.is_authenticated %}
                             <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
                             {% else %}
-                            <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Comprar</a>
+                            <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Adicionar ao Carrinho</a>
                             {% endif %}
                         </div>
 

@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, get_user_model
-from django.db import models
+from django.db import models, IntegrityError
 from django.contrib import messages
 from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm, ChangePasswordForm
 from rest_framework import generics
@@ -278,48 +278,63 @@ def user_register(request):
     if request.method == 'POST':
         account_type = request.POST.get('account_type')
 
-        if account_type == 'individual':
-            # Criar usuário pessoa física
-            User = get_user_model()
-            user = User.objects.create_user(
-                username=request.POST.get('username'),
-                email=request.POST.get('email'),
-                password=request.POST.get('password'),
-                first_name=request.POST.get('first_name'),
-                last_name=request.POST.get('last_name'),
-                is_store=False
-            )
+        if account_type not in ['individual', 'store']:
+            messages.error(request, 'Selecione o tipo de conta antes de continuar.')
+            return render(request, 'users/register.html')
 
-            # Criar perfil comum
-            CommonProfile.objects.create(
-                user=user,
-                cpf=request.POST.get('cpf')
-            )
+        User = get_user_model()
 
-            messages.success(request, 'Conta criada com sucesso! Faça o login.')
-            return redirect('login')
+        try:
+            if account_type == 'individual':
+                user = User.objects.create_user(
+                    username=request.POST.get('username'),
+                    email=request.POST.get('email'),
+                    password=request.POST.get('password'),
+                    first_name=request.POST.get('first_name'),
+                    last_name=request.POST.get('last_name'),
+                    is_store=False
+                )
 
-        elif account_type == 'store':
-            # Criar usuário loja
-            User = get_user_model()
-            user = User.objects.create_user(
-                username=request.POST.get('store_username'),
-                email=request.POST.get('store_email'),
-                password=request.POST.get('store_password'),
-                first_name=request.POST.get('responsible_name'),
-                is_store=True
-            )
+                CommonProfile.objects.create(
+                    user=user,
+                    cpf=request.POST.get('cpf')
+                )
 
-            # Criar perfil de loja
-            StoreProfile.objects.create(
-                user=user,
-                cnpj=request.POST.get('cnpj'),
-                razao_social=request.POST.get('company_name'),
-                verified=False
-            )
+                messages.success(request, 'Conta criada com sucesso! Faça o login.')
+                return redirect('login')
 
-            messages.success(request, 'Conta de loja criada com sucesso! Aguarde verificação.')
-            return redirect('login')
+            elif account_type == 'store':
+                user = User.objects.create_user(
+                    username=request.POST.get('store_username'),
+                    email=request.POST.get('store_email'),
+                    password=request.POST.get('store_password'),
+                    first_name=request.POST.get('responsible_name'),
+                    is_store=True
+                )
+
+                StoreProfile.objects.create(
+                    user=user,
+                    cnpj=request.POST.get('cnpj'),
+                    razao_social=request.POST.get('company_name'),
+                    verified=False
+                )
+
+                messages.success(request, 'Conta de loja criada com sucesso! Aguarde verificação.')
+                return redirect('login')
+
+        except IntegrityError as error:
+            if 'unique' in str(error).lower():
+                messages.error(request, 'Já existe um cadastro com os dados inseridos. Verifique usuário, CPF ou CNPJ.')
+            else:
+                messages.error(request, 'Erro ao criar conta: {}'.format(error))
+            if 'user' in locals():
+                user.delete()
+            return render(request, 'users/register.html')
+        except Exception as error:
+            if 'user' in locals():
+                user.delete()
+            messages.error(request, 'Erro ao criar conta, verifique os dados e tente novamente.')
+            return render(request, 'users/register.html')
 
     return render(request, 'users/register.html')
 

@@ -9,19 +9,28 @@
             <div class="progress-fill" id="progress-fill" style="width: 33%;"></div>
         </div>
 
+        {% if messages %}
+            <div class="alert-container" style="margin-bottom: 1rem;">
+                {% for message in messages %}
+                    <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         <!-- STEP 1: Account Type Selection -->
         <div class="step-container active" id="step-1">
             <h2><span class="material-icons">account_circle</span> Escolha o Tipo de Conta</h2>
             <p style="text-align: center; color: #999; margin-bottom: 2rem;">Selecione o tipo de conta que melhor se adapta às suas necessidades</p>
 
             <div class="account-type-selection">
-                <div class="account-type-card" onclick="selectAccountType('individual')">
-                    <span class="material-icons">person</span>
-                    <h4>Pessoa Física</h4>
-                    <p>Para usuários individuais que desejam comprar e vender produtos</p>
-                </div>
-                <div class="account-type-card" onclick="selectAccountType('store')">
-                    <span class="material-icons">store</span>
+                    <div class="account-type-card" onclick="selectAccountType(event, 'individual')">
+                        <span class="material-icons">person</span>
+                        <h4>Pessoa Física</h4>
+                        <p>Para usuários individuais que desejam comprar e vender produtos</p>
+                    </div>
+                    <div class="account-type-card" onclick="selectAccountType(event, 'store')">
                     <h4>Loja/Empresa</h4>
                     <p>Para empresas e lojistas que desejam vender produtos em escala</p>
                 </div>
@@ -36,7 +45,7 @@
         <div class="step-container" id="step-2">
             <h2><span class="material-icons">person</span> Informações Pessoais</h2>
 
-            <form id="registration-form">
+            <form id="registration-form" action="" method="post">
                 {% csrf_token %}
 
                 <!-- Individual Fields -->
@@ -180,8 +189,8 @@
             </form>
 
             <div class="step-navigation">
-                <button class="btn-prev" onclick="prevStep()">Voltar</button>
-                <button class="btn-submit" onclick="submitRegistration()">Cadastrar</button>
+                <button type="button" class="btn-prev" onclick="prevStep()">Voltar</button>
+                <button type="button" class="btn-submit" onclick="submitRegistration()">Cadastrar</button>
             </div>
         </div>
     </div>
@@ -191,7 +200,7 @@
 let currentStep = 1;
 let selectedAccountType = '';
 
-function selectAccountType(type) {
+function selectAccountType(event, type) {
     selectedAccountType = type;
     document.getElementById('account_type').value = type;
 
@@ -201,7 +210,12 @@ function selectAccountType(type) {
     });
 
     // Add selected class to clicked card
-    event.target.closest('.account-type-card').classList.add('selected');
+    if (event && event.target) {
+        const card = event.target.closest('.account-type-card');
+        if (card) {
+            card.classList.add('selected');
+        }
+    }
 }
 
 function nextStep() {
