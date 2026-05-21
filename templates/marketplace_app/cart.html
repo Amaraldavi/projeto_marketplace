@@ -6,29 +6,79 @@
 <div class="container">
     <h2 class="section-title"><span class="material-icons">shopping_cart</span> Meu Carrinho</h2>
 
+    {% if messages %}
+        <div class="alert-container" style="margin-bottom: 1rem;">
+            {% for message in messages %}
+                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     {% if items %}
         <div class="cart-grid">
             <div class="cart-items">
-                {% for item in items %}
-                <div class="cart-item-card">
-                    <div class="cart-item-content">
-                        <h3>{{ item.listing.title }}</h3>
-                        <p>{{ item.listing.description|truncatechars:100 }}</p>
-                        <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
-                        <div class="product-actions">
-                            <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
-                            <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                {% if buy_items %}
+                    <h3 style="margin-bottom: 1rem;">Itens para compra</h3>
+                    {% for item in buy_items %}
+                    <div class="cart-item-card">
+                        <div class="cart-item-content">
+                            <h3>{{ item.listing.title }}</h3>
+                            <p>{{ item.listing.description|truncatechars:100 }}</p>
+                            <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
+                            <p><strong>Destino:</strong> Compra</p>
+                            <div class="product-actions">
+                                <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
+                                <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                                {% if item.listing.listing_type == 'both' %}
+                                <form method="post" action="{% url 'update_cart_item_action' item.id %}" class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="desired_action" value="trade">
+                                    <button type="submit" class="btn-details">Mudar para troca</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if trade_items %}
+                    <h3 style="margin: 2rem 0 1rem;">Itens para troca</h3>
+                    <p class="empty-state" style="text-align:left; margin-bottom:1rem;">Esses itens vão para negociação separada e não entram no total de compra.</p>
+                    {% for item in trade_items %}
+                    <div class="cart-item-card">
+                        <div class="cart-item-content">
+                            <h3>{{ item.listing.title }}</h3>
+                            <p>{{ item.listing.description|truncatechars:100 }}</p>
+                            <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
+                            <p><strong>Destino:</strong> Troca</p>
+                            <div class="product-actions">
+                                <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
+                                <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                                {% if item.listing.listing_type == 'both' %}
+                                <form method="post" action="{% url 'update_cart_item_action' item.id %}" class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="desired_action" value="buy">
+                                    <button type="submit" class="btn-details">Mudar para compra</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
             </div>
+
             <div class="cart-summary">
                 <div class="summary-card">
                     <h3>Resumo do carrinho</h3>
-                    <p>Total: <strong>R$ {{ total|floatformat:2 }}</strong></p>
-                    <p>Itens: <strong>{{ items|length }}</strong></p>
-                    <a href="{% url 'home' %}" class="btn-details">Continuar comprando</a>
+                    <p>Total de compra: <strong>R$ {{ total|floatformat:2 }}</strong></p>
+                    <p>Itens de compra: <strong>{{ buy_items|length }}</strong></p>
+                    <p>Itens de troca: <strong>{{ trade_items|length }}</strong></p>
+                    <a href="{% url 'checkout' %}" class="btn-secondary">Avançar para checkout</a>
+                    <a href="{% url 'home' %}" class="btn-details" style="margin-top: 0.75rem; display:inline-block;">Continuar comprando</a>
                 </div>
             </div>
         </div>

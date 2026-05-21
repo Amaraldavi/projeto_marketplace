@@ -86,6 +86,26 @@
                     </div>
                 </div>
 
+                {% if profile_form %}
+                <div class="form-row">
+                    <div class="form-group" style="width: 100%;">
+                        <h3 style="margin-bottom: 1rem;">Dados do Perfil</h3>
+                        {% if profile_form.non_field_errors %}
+                            <div class="error-message">{{ profile_form.non_field_errors }}</div>
+                        {% endif %}
+                        {% for field in profile_form %}
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="error-message">{{ field.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="form-actions">
                     <button type="submit" class="btn-secondary">Salvar alterações</button>
                     <a href="{% url 'change_password' %}" class="btn-theme">Alterar Senha</a>

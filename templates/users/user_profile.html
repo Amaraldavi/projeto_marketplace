@@ -26,9 +26,23 @@
                 {% if profile_user.is_store and profile %}
                     <p><strong>CNPJ:</strong> {{ profile.cnpj }}</p>
                     <p><strong>Razão Social:</strong> {{ profile.razao_social }}</p>
+                    {% if profile.fantasy_name %}<p><strong>Nome Fantasia:</strong> {{ profile.fantasy_name }}</p>{% endif %}
+                    {% if profile.state_registration %}<p><strong>Inscrição Estadual:</strong> {{ profile.state_registration }}</p>{% endif %}
+                    {% if profile.responsible_name %}<p><strong>Responsável:</strong> {{ profile.responsible_name }}</p>{% endif %}
+                    {% if profile.responsible_cpf %}<p><strong>CPF do Responsável:</strong> {{ profile.responsible_cpf }}</p>{% endif %}
+                    {% if profile.phone %}<p><strong>Telefone:</strong> {{ profile.phone }}</p>{% endif %}
+                    {% if profile.email %}<p><strong>E-mail:</strong> {{ profile.email }}</p>{% endif %}
+                    {% if profile.commercial_cep %}<p><strong>CEP Comercial:</strong> {{ profile.commercial_cep }}</p>{% endif %}
+                    {% if profile.commercial_address %}<p><strong>Endereço Comercial:</strong> {{ profile.commercial_address }}</p>{% endif %}
                     {% if profile.verified %}
                         <p class="verified-badge"><span class="material-icons">verified</span> Loja Verificada</p>
                     {% endif %}
+                {% elif profile %}
+                    <p><strong>CPF:</strong> {{ profile.cpf }}</p>
+                    {% if profile.birth_date %}<p><strong>Data de Nascimento:</strong> {{ profile.birth_date|date:"d/m/Y" }}</p>{% endif %}
+                    {% if profile.phone %}<p><strong>Telefone:</strong> {{ profile.phone }}</p>{% endif %}
+                    {% if profile.cep %}<p><strong>CEP:</strong> {{ profile.cep }}</p>{% endif %}
+                    {% if profile.address %}<p><strong>Endereço:</strong> {{ profile.address }}</p>{% endif %}
                 {% endif %}
             </div>
         </div>

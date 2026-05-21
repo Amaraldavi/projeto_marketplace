@@ -112,14 +112,14 @@
     <h2 class="section-title"><span class="material-icons">category</span> Categorias</h2>
     <div class="categories">
         <!-- Link para ver todos -->
-        <a href="{% url 'home' %}" class="category-card {% if not selected_category %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
+        <a href="{% url 'home' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}" class="category-card {% if not selected_category %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
             <span class="material-icons">apps</span>
             <span>Todos</span>
         </a>
         
         {% for category in categories %}
         {% if category.name != 'Todos' %}
-        <a href="?categoria={{ category.slug }}" class="category-card {% if selected_category.id == category.id %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
+        <a href="?categoria={{ category.slug }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-card {% if selected_category and selected_category.id == category.id %}active{% endif %}" style="text-decoration: none; cursor: pointer;">
             <span class="material-icons">devices</span>
             <span>{{ category.name }}</span>
         </a>
@@ -159,9 +159,15 @@
                     <div class="product-actions">
                         <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
                         {% if user.is_authenticated %}
-                        <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                            {% if anuncio.listing_type == 'sale' %}
+                                <a href="{% url 'add_to_cart' anuncio.id %}?action=buy&next={% url 'home' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                            {% elif anuncio.listing_type == 'trade' %}
+                                <a href="{% url 'add_to_cart' anuncio.id %}?action=trade&next={% url 'home' %}" class="btn-buy"><span class="material-icons">handshake</span> Solicitar Troca</a>
+                            {% else %}
+                                <a href="{% url 'add_to_cart' anuncio.id %}?action=buy&next={% url 'home' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</a>
+                            {% endif %}
                         {% else %}
-                        <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Adicionar ao Carrinho</a>
+                            <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Entrar para agir</a>
                         {% endif %}
                     </div>
 
@@ -216,9 +222,15 @@
                         <div class="product-actions">
                             <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
                             {% if user.is_authenticated %}
-                            <a href="{% url 'add_to_cart' anuncio.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                                {% if anuncio.listing_type == 'sale' %}
+                                    <a href="{% url 'add_to_cart' anuncio.id %}?action=buy&next={% url 'home' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                                {% elif anuncio.listing_type == 'trade' %}
+                                    <a href="{% url 'add_to_cart' anuncio.id %}?action=trade&next={% url 'home' %}" class="btn-buy"><span class="material-icons">handshake</span> Solicitar Troca</a>
+                                {% else %}
+                                    <a href="{% url 'add_to_cart' anuncio.id %}?action=buy&next={% url 'home' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</a>
+                                {% endif %}
                             {% else %}
-                            <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Adicionar ao Carrinho</a>
+                            <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy"><span class="material-icons">login</span> Entrar para agir</a>
                             {% endif %}
                         </div>
 

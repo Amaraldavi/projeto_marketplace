@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from .models import Listing, Comment, CommonProfile, StoreProfile
+from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Order, TradeMessage, TradeRequest, Delivery, PaymentTransaction
 
 User = get_user_model()
 
@@ -52,6 +52,9 @@ class ListingForm(forms.ModelForm):
         if self.user and self.user.is_store:
             self.fields['listing_type'].choices = [
                 ('sale', 'Venda')
+            ]
+            self.fields['condition'].choices = [
+                (Listing.NEW, 'Novo')
             ]
         else:
             self.fields['listing_type'].choices = [
@@ -115,13 +118,35 @@ class ChangePasswordForm(forms.Form):
 class CommonProfileForm(forms.ModelForm):
     class Meta:
         model = CommonProfile
-        fields = []  # Sem campos editáveis (CPF não pode ser alterado)
+        fields = ['birth_date', 'phone', 'cep', 'address']
+        widgets = {
+            'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
+            'cep': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
+            'address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Rua, número, complemento'}),
+        }
 
 
 class StoreProfileForm(forms.ModelForm):
     class Meta:
         model = StoreProfile
-        fields = ['cnpj', 'razao_social']
+        fields = [
+            'cnpj', 'razao_social', 'fantasy_name', 'state_registration',
+            'responsible_name', 'responsible_cpf', 'phone', 'email',
+            'commercial_cep', 'commercial_address',
+        ]
+        widgets = {
+            'cnpj': forms.TextInput(attrs={'class': 'form-control'}),
+            'razao_social': forms.TextInput(attrs={'class': 'form-control'}),
+            'fantasy_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'state_registration': forms.TextInput(attrs={'class': 'form-control'}),
+            'responsible_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'responsible_cpf': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'commercial_cep': forms.TextInput(attrs={'class': 'form-control'}),
+            'commercial_address': forms.TextInput(attrs={'class': 'form-control'}),
+        }
 
 
 class CommentForm(forms.ModelForm):
@@ -134,4 +159,152 @@ class CommentForm(forms.ModelForm):
                 'placeholder': 'Escreva seu comentário...',
                 'rows': 4,
             }),
+        }
+
+
+class CartItemActionForm(forms.ModelForm):
+    class Meta:
+        model = CartItem
+        fields = ['desired_action']
+        widgets = {
+            'desired_action': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+
+class CheckoutForm(forms.Form):
+    payment_method = forms.ChoiceField(
+        choices=Order.PAYMENT_METHOD_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label='Forma de pagamento',
+    )
+    delivery_method = forms.ChoiceField(
+        choices=Order.DELIVERY_METHOD_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label='Forma de entrega',
+        initial=Order.TO_AGREE,
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        label='Observações',
+    )
+    recipient_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Nome do destinatário',
+    )
+    recipient_phone = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Telefone do destinatário',
+    )
+    postal_code = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='CEP',
+    )
+    street = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Rua',
+    )
+    number = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Número',
+    )
+    complement = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Complemento',
+    )
+    neighborhood = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Bairro',
+    )
+    city = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        label='Cidade',
+    )
+    state = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
+        label='Estado',
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        delivery_method = cleaned_data.get('delivery_method')
+
+        if delivery_method == Order.PICKUP:
+            return cleaned_data
+
+        required_fields = [
+            'recipient_name', 'recipient_phone', 'postal_code', 'street',
+            'number', 'neighborhood', 'city', 'state',
+        ]
+
+        for field_name in required_fields:
+            if not cleaned_data.get(field_name):
+                self.add_error(field_name, 'Este campo é obrigatório para entrega.')
+
+        return cleaned_data
+
+
+class DeliveryForm(forms.ModelForm):
+    class Meta:
+        model = Delivery
+        fields = [
+            'method', 'recipient_name', 'recipient_phone', 'postal_code',
+            'street', 'number', 'complement', 'neighborhood', 'city', 'state',
+            'shipping_cost', 'carrier_name', 'tracking_code', 'estimated_delivery_date', 'notes',
+        ]
+        widgets = {
+            'method': forms.Select(attrs={'class': 'form-control'}),
+            'recipient_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-control'}),
+            'street': forms.TextInput(attrs={'class': 'form-control'}),
+            'number': forms.TextInput(attrs={'class': 'form-control'}),
+            'complement': forms.TextInput(attrs={'class': 'form-control'}),
+            'neighborhood': forms.TextInput(attrs={'class': 'form-control'}),
+            'city': forms.TextInput(attrs={'class': 'form-control'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
+            'shipping_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'carrier_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'tracking_code': forms.TextInput(attrs={'class': 'form-control'}),
+            'estimated_delivery_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class TradeMessageForm(forms.ModelForm):
+    class Meta:
+        model = TradeMessage
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'class': 'comment-input',
+                'placeholder': 'Escreva sua mensagem de negociação...',
+                'rows': 4,
+            }),
+        }
+
+
+class TradeStatusForm(forms.Form):
+    status = forms.ChoiceField(
+        choices=TradeRequest.STATUS_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label='Status da negociação',
+    )
+
+
+class PaymentTransactionForm(forms.ModelForm):
+    class Meta:
+        model = PaymentTransaction
+        fields = ['gateway']
+        widgets = {
+            'gateway': forms.Select(attrs={'class': 'form-control'}),
         }

@@ -13,10 +13,10 @@
         <div class="header-container">
             <a href="/" class="logo">TECH HUB</a>
             
-            <div class="search-bar">
-                <input type="text" placeholder="Buscar...">
+            <form class="search-bar" method="get" action="{% url 'home' %}">
+                <input type="text" name="q" placeholder="Buscar..." value="{{ request.GET.q|default:'' }}">
                 <button type="submit">🔍</button>
-            </div>
+            </form>
 
             <div class="nav-buttons">
                 <button id="theme-toggle" class="btn-theme" type="button" aria-label="Alternar tema">
@@ -25,6 +25,9 @@
                 {% if user.is_authenticated %}
                     <a href="{% url 'edit_profile' %}" class="btn-primary">Perfil</a>
                     <a href="{% url 'my_listings' %}" class="btn-primary">Meus anúncios</a>
+                    <a href="{% url 'orders' %}" class="btn-primary">Pedidos</a>
+                    <a href="{% url 'trade_requests' %}" class="btn-primary">Trocas</a>
+                    <a href="{% url 'checkout' %}" class="btn-primary">Checkout</a>
                     <a href="{% url 'cart' %}" class="btn-secondary">Carrinho</a>
                     <span style="margin-right: 1rem;">Olá, {{ user.username }}</span>
                     <a href="{% url 'logout' %}" class="btn-primary">Sair</a>

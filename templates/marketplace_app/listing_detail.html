@@ -40,7 +40,16 @@
                     {% if in_cart %}
                         <a href="{% url 'cart' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Ver Carrinho</a>
                     {% else %}
-                        <a href="{% url 'add_to_cart' listing.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                        {% if listing.listing_type == 'sale' %}
+                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                        {% elif listing.listing_type == 'trade' %}
+                            <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">handshake</span> Solicitar Troca</a>
+                        {% else %}
+                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</a>
+                            {% if not listing.seller.is_store %}
+                                <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-details"><span class="material-icons">handshake</span> Trocar</a>
+                            {% endif %}
+                        {% endif %}
                     {% endif %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Faça login para comprar</a>
