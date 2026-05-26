@@ -333,9 +333,10 @@ def delivery_update(request, pk):
 
 @login_required
 def trade_requests_view(request):
+    # Excluir negociações já finalizadas/efetuadas (aprovadas ou concluídas)
     trade_requests = TradeRequest.objects.select_related('listing', 'requester', 'counterparty').filter(
         models.Q(requester=request.user) | models.Q(counterparty=request.user)
-    ).order_by('-created_at')
+    ).exclude(status__in=[TradeRequest.APPROVED, TradeRequest.COMPLETED]).order_by('-created_at')
 
     return render(request, 'marketplace_app/trade_requests.html', {
         'trade_requests': trade_requests,

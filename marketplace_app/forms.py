@@ -5,6 +5,50 @@ from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Ord
 User = get_user_model()
 
 
+def _only_digits(value):
+    return ''.join(ch for ch in (value or '') if ch.isdigit())
+
+
+def _is_valid_cpf(value):
+    digits = _only_digits(value)
+
+    if len(digits) != 11:
+        return False
+
+    if digits == digits[0] * 11:
+        return False
+
+    def calc_digit(base, weights):
+        total = sum(int(number) * weight for number, weight in zip(base, weights))
+        remainder = (total * 10) % 11
+        return 0 if remainder == 10 else remainder
+
+    first_digit = calc_digit(digits[:9], range(10, 1, -1))
+    second_digit = calc_digit(digits[:10], range(11, 1, -1))
+    return digits[-2:] == f'{first_digit}{second_digit}'
+
+
+def _is_valid_phone(value):
+    digits = _only_digits(value)
+    return len(digits) in (10, 11)
+
+
+def _format_cpf(value):
+    digits = _only_digits(value)[:11]
+    if len(digits) != 11:
+        return value
+    return f'{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}'
+
+
+def _format_phone(value):
+    digits = _only_digits(value)[:11]
+    if len(digits) < 10:
+        return value
+    if len(digits) == 10:
+        return f'({digits[:2]}) {digits[2:6]}-{digits[6:]}'
+    return f'({digits[:2]}) {digits[2:7]}-{digits[7:]}'
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -158,6 +202,7 @@ class IndividualRegistrationForm(forms.Form):
     phone = forms.CharField(max_length=30, required=False)
     username = forms.CharField(max_length=150)
     password = forms.CharField(widget=forms.PasswordInput)
+    confirm_password = forms.CharField(widget=forms.PasswordInput)
     cep = forms.CharField(max_length=20, required=False)
     address = forms.CharField(max_length=255, required=False)
 
@@ -175,6 +220,24 @@ class IndividualRegistrationForm(forms.Form):
         except Exception as e:
             raise forms.ValidationError(str(e))
         return pwd
+
+    def clean_confirm_password(self):
+        confirm_password = self.cleaned_data['confirm_password']
+        if 'password' in self.cleaned_data and confirm_password != self.cleaned_data.get('password'):
+            raise forms.ValidationError('As senhas não coincidem.')
+        return confirm_password
+
+    def clean_cpf(self):
+        cpf = self.cleaned_data['cpf']
+        if not _is_valid_cpf(cpf):
+            raise forms.ValidationError('CPF inválido.')
+        return _format_cpf(cpf)
+
+    def clean_phone(self):
+        phone = self.cleaned_data.get('phone', '')
+        if phone and not _is_valid_phone(phone):
+            raise forms.ValidationError('Telefone inválido.')
+        return _format_phone(phone) if phone else phone
 
     def save(self):
         User = get_user_model()
@@ -203,6 +266,7 @@ class IndividualRegistrationForm(forms.Form):
 class StoreRegistrationForm(forms.Form):
     store_username = forms.CharField(max_length=150)
     store_password = forms.CharField(widget=forms.PasswordInput)
+    confirm_store_password = forms.CharField(widget=forms.PasswordInput)
     store_email = forms.EmailField()
     cnpj = forms.CharField(max_length=30)
     company_name = forms.CharField(max_length=255)
@@ -228,6 +292,24 @@ class StoreRegistrationForm(forms.Form):
         except Exception as e:
             raise forms.ValidationError(str(e))
         return pwd
+
+    def clean_confirm_store_password(self):
+        confirm_password = self.cleaned_data['confirm_store_password']
+        if 'store_password' in self.cleaned_data and confirm_password != self.cleaned_data.get('store_password'):
+            raise forms.ValidationError('As senhas não coincidem.')
+        return confirm_password
+
+    def clean_responsible_cpf(self):
+        responsible_cpf = self.cleaned_data['responsible_cpf']
+        if not _is_valid_cpf(responsible_cpf):
+            raise forms.ValidationError('CPF inválido.')
+        return _format_cpf(responsible_cpf)
+
+    def clean_store_phone(self):
+        store_phone = self.cleaned_data.get('store_phone', '')
+        if store_phone and not _is_valid_phone(store_phone):
+            raise forms.ValidationError('Telefone inválido.')
+        return _format_phone(store_phone) if store_phone else store_phone
 
     def save(self):
         User = get_user_model()

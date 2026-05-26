@@ -28,7 +28,22 @@
                     <a href="{% url 'orders' %}" class="btn-primary">Pedidos</a>
                     <a href="{% url 'trade_requests' %}" class="btn-primary">Trocas</a>
                     <a href="{% url 'checkout' %}" class="btn-primary">Checkout</a>
-                    <a href="{% url 'cart' %}" class="btn-secondary">Carrinho</a>
+                    <div class="cart-container">
+                        <a href="{% url 'cart' %}" class="cart-btn btn-secondary" id="cart-toggle" aria-haspopup="true" aria-expanded="false">
+                            <span class="material-icons">shopping_cart</span>
+                            <span class="cart-count-badge">{{ cart_total_count|default:0 }}</span>
+                        </a>
+                        <div class="cart-dropdown" id="cart-dropdown" aria-hidden="true">
+                            <div class="cart-dropdown-header">Carrinho rápido</div>
+                            <div class="cart-dropdown-body">
+                                <p>Itens para compra: <strong>{{ cart_buy_count|default:0 }}</strong></p>
+                                <p>Itens para troca: <strong>{{ cart_trade_count|default:0 }}</strong></p>
+                                <div class="cart-dropdown-actions">
+                                    <a href="{% url 'cart' %}" class="btn-primary">Ver carrinho</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <span style="margin-right: 1rem;">Olá, {{ user.username }}</span>
                     <a href="{% url 'logout' %}" class="btn-primary">Sair</a>
                 {% else %}
@@ -93,6 +108,27 @@
             const nextTheme = body.classList.contains('light-mode') ? 'dark' : 'light';
             applyTheme(nextTheme);
         });
+
+        // Cart dropdown toggle
+        const cartToggle = document.getElementById('cart-toggle');
+        const cartDropdown = document.getElementById('cart-dropdown');
+
+        if (cartToggle && cartDropdown) {
+            cartToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                const open = cartDropdown.classList.toggle('open');
+                cartToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                cartDropdown.setAttribute('aria-hidden', open ? 'false' : 'true');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!cartToggle.contains(e.target) && !cartDropdown.contains(e.target)) {
+                    cartDropdown.classList.remove('open');
+                    cartToggle.setAttribute('aria-expanded', 'false');
+                    cartDropdown.setAttribute('aria-hidden', 'true');
+                }
+            });
+        }
     </script>
 </body>
 </html>
