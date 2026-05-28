@@ -4,18 +4,46 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables using django-environ
-import environ
+# Load environment variables using django-environ if available, otherwise fall back to os.environ
+try:
+    import environ
 
-# initialize environment
-env = environ.Env(
-    DEBUG=(bool, True),
-)
-environ.Env.read_env(BASE_DIR / '.env')
+    # initialize environment
+    env = environ.Env(
+        DEBUG=(bool, True),
+    )
+    environ.Env.read_env(BASE_DIR / '.env')
+except Exception:
+    # Lightweight fallback when django-environ is not installed (uses os.environ)
+    class _SimpleEnv:
+        def __call__(self, key, default=None):
+            return os.environ.get(key, default)
+
+        def bool(self, key, default=False):
+            val = os.environ.get(key)
+            if val is None:
+                return default
+            return val.lower() in ('1', 'true', 'yes', 'on')
+
+        def list(self, key, default=None):
+            val = os.environ.get(key)
+            if val is None:
+                return default if default is not None else []
+            return [item.strip() for item in val.split(',') if item.strip()]
+
+        def int(self, key, default=0):
+            val = os.environ.get(key)
+            try:
+                return int(val)
+            except Exception:
+                return default
+
+    env = _SimpleEnv()
 
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-key')
 
 DEBUG = env.bool('DEBUG', default=True)
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8080')
 
 # ALLOWED_HOSTS can be provided as a comma separated list in .env
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
@@ -48,6 +76,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'marketplace_app.middleware.LegacyFrontendRedirectMiddleware',
 ]
 
 
@@ -60,7 +89,7 @@ ROOT_URLCONF = 'marketplace.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
