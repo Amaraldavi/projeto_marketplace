@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
 
     # REMOVIDO: 'users'
     'marketplace_app',
@@ -69,6 +70,7 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # =========================
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -183,6 +185,13 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='')
 
 # External service tokens are configured in the PAYMENTS section below
 
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
