@@ -86,7 +86,7 @@
                                     {% endfor %}
                                 </div>
                             {% endif %}
-                        {% if forloop.first and latest_proposal and not trade_is_final and user != proposal.proposer and user == trade_request.counterparty %}
+                        {% if forloop.first and latest_proposal and not trade_is_final and user != proposal.proposer %}
                             <form method="post" action="{% url 'trade_proposal_accept' trade_request.id proposal.id %}" style="margin-top: 0.75rem;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-secondary">Aceitar proposta</button>

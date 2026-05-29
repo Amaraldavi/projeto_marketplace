@@ -122,11 +122,9 @@ def _is_trade_final(trade_request):
 
 
 def _get_trade_next_actor(trade_request, latest_proposal=None):
-    # The first proposal should be created by the user who initiated the solicitation
     if latest_proposal is None:
-        return trade_request.requester
-    # If the latest proposer was the requester, it's the counterparty's turn, and vice-versa
-    return trade_request.counterparty if latest_proposal.proposer_id == trade_request.requester_id else trade_request.requester
+        return trade_request.counterparty
+    return trade_request.requester if latest_proposal.proposer_id == trade_request.counterparty_id else trade_request.counterparty
 
 
 def _get_trade_proposal_state(request, trade_request, proposals):
@@ -141,12 +139,11 @@ def _get_trade_proposal_state(request, trade_request, proposals):
         'can_reject_trade': is_user_turn and is_active_negotiation,
         'can_cancel_trade': request.user.id == trade_request.requester_id and is_active_negotiation,
         'proposal_prompt': (
-            # If there is no proposal yet, the requester (initiator) should send the first proposal.
-            'Envie sua proposta inicial para iniciar a negociação.'
+            'Aguardando a primeira proposta da contraparte.'
             if latest_proposal is None and request.user.id == trade_request.requester_id
-            else 'Aguardando a proposta inicial do solicitante.'
-            if latest_proposal is None
             else 'Envie um produto, um valor em dinheiro ou ambos para responder à proposta.'
+            if latest_proposal is not None
+            else 'Envie sua proposta inicial para iniciar a negociação.'
         ),
         'proposal_button_label': (
             'Enviar proposta inicial'
@@ -722,9 +719,8 @@ def trade_proposal_create(request, pk):
             proposals = trade_request.proposals.select_related('proposer').order_by('-created_at')
             latest_proposal = proposals.first()
             next_actor = _get_trade_next_actor(trade_request, latest_proposal)
-            # The first proposal must be sent by the requester (the user who initiated the solicitation)
-            if latest_proposal is None and request.user.id != trade_request.requester_id:
-                messages.error(request, 'A primeira proposta deve ser enviada pelo solicitante (quem iniciou a solicitação).')
+            if latest_proposal is None and request.user.id != trade_request.counterparty_id:
+                messages.error(request, 'A primeira proposta deve ser enviada pela contraparte.')
                 return redirect('trade_request_detail', pk=pk)
 
             if latest_proposal is not None and request.user.id == latest_proposal.proposer_id:
@@ -795,12 +791,6 @@ def trade_proposal_accept(request, pk, proposal_pk):
 
     if proposal.proposer_id == request.user.id:
         messages.error(request, 'Você não pode aceitar sua própria proposta.')
-        return redirect('trade_request_detail', pk=pk)
-
-    # Only the owner of the listing (counterparty when a user initiated the trade) can accept/finalize a proposal
-    listing_owner = trade_request.listing.seller if hasattr(trade_request, 'listing') else None
-    if listing_owner and request.user.id != listing_owner.id:
-        messages.error(request, 'Apenas o criador do anúncio pode aceitar a proposta.')
         return redirect('trade_request_detail', pk=pk)
 
     if latest_proposal and proposal.pk != latest_proposal.pk:

@@ -159,12 +159,14 @@ class TradeFlowTests(TestCase):
         self.assertNotContains(detail_response, 'Enviar proposta inicial')
 
     def test_proposal_image_upload_and_delivery_flow(self):
-        # create the first proposal as the requester and attach an image directly (avoids multipart in tests)
+        self.client.login(username='counterparty', password='Pwd12345!')
+
+        # create the first proposal and attach an image directly (avoids multipart in tests)
         from .models import TradeProposalImage, TradeProposal
         image = SimpleUploadedFile('test.jpg', b'\x47\x49\x46\x38\x39\x61', content_type='image/gif')
         proposal = TradeProposal.objects.create(
             trade_request=self.trade_request,
-            proposer=self.requester,
+            proposer=self.counterparty,
             item_description='Notebook com 8GB RAM',
             cash_amount=Decimal('100.00'),
             note='Inclui carregador'
@@ -176,9 +178,8 @@ class TradeFlowTests(TestCase):
         # images should be attached
         self.assertTrue(latest.images.count() >= 1)
 
-        # owner of the listing (counterparty) accepts
         self.client.logout()
-        self.client.login(username='counterparty', password='Pwd12345!')
+        self.client.login(username='requester', password='Pwd12345!')
 
         accept_url = reverse('trade_proposal_accept', args=[self.trade_request.pk, latest.pk])
         response = self.client.post(accept_url, follow=True)

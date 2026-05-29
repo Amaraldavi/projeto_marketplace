@@ -86,7 +86,7 @@
                                     {% endfor %}
                                 </div>
                             {% endif %}
-                        {% if forloop.first and latest_proposal and not trade_is_final and user != proposal.proposer and user == trade_request.counterparty %}
+                        {% if forloop.first and latest_proposal and not trade_is_final and user != proposal.proposer %}
                             <form method="post" action="{% url 'trade_proposal_accept' trade_request.id proposal.id %}" style="margin-top: 0.75rem;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-secondary">Aceitar proposta</button>
@@ -119,7 +119,7 @@
             <div class="summary-card">
                 <h3>Responder negociação</h3>
 
-                {% if can_cancel_trade %}
+                {% if user == trade_request.requester and not trade_is_final %}
                 <form method="post" action="{% url 'trade_request_cancel' trade_request.id %}" style="margin-bottom: 1rem;">
                     {% csrf_token %}
                     <button type="submit" class="btn-buy" style="width: 100%;">Cancelar troca</button>

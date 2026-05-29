@@ -7,7 +7,7 @@ from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.dateparse import parse_date
 
-from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeProposal, TradeRequest, CartItem
+from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeRequest, TradeProposal, CartItem
 
 
 def create_mercado_pago_preference(request, order, order_items):

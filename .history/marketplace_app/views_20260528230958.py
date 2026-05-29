@@ -122,31 +122,26 @@ def _is_trade_final(trade_request):
 
 
 def _get_trade_next_actor(trade_request, latest_proposal=None):
-    # The first proposal should be created by the user who initiated the solicitation
     if latest_proposal is None:
-        return trade_request.requester
-    # If the latest proposer was the requester, it's the counterparty's turn, and vice-versa
-    return trade_request.counterparty if latest_proposal.proposer_id == trade_request.requester_id else trade_request.requester
+        return trade_request.counterparty
+    return trade_request.requester if latest_proposal.proposer_id == trade_request.counterparty_id else trade_request.counterparty
 
 
 def _get_trade_proposal_state(request, trade_request, proposals):
     latest_proposal = proposals.first()
-    is_active_negotiation = trade_request.status in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]
-    next_actor = None if _is_trade_final(trade_request) or not is_active_negotiation else _get_trade_next_actor(trade_request, latest_proposal)
-    is_user_turn = bool(next_actor and request.user.id == next_actor.id)
+    next_actor = None if _is_trade_final(trade_request) else _get_trade_next_actor(trade_request, latest_proposal)
+    is_user_turn = bool(next_actor and request.user_id == next_actor.id)
     return {
         'latest_proposal': latest_proposal,
         'next_actor': next_actor,
-        'can_create_proposal': is_user_turn and is_active_negotiation,
-        'can_reject_trade': is_user_turn and is_active_negotiation,
-        'can_cancel_trade': request.user.id == trade_request.requester_id and is_active_negotiation,
+        'can_create_proposal': is_user_turn and not _is_trade_final(trade_request),
+        'can_reject_trade': is_user_turn and not _is_trade_final(trade_request),
         'proposal_prompt': (
-            # If there is no proposal yet, the requester (initiator) should send the first proposal.
-            'Envie sua proposta inicial para iniciar a negociação.'
-            if latest_proposal is None and request.user.id == trade_request.requester_id
-            else 'Aguardando a proposta inicial do solicitante.'
-            if latest_proposal is None
+            'Aguardando a primeira proposta da contraparte.'
+            if latest_proposal is None and request.user_id == trade_request.requester_id
             else 'Envie um produto, um valor em dinheiro ou ambos para responder à proposta.'
+            if latest_proposal is not None
+            else 'Envie sua proposta inicial para iniciar a negociação.'
         ),
         'proposal_button_label': (
             'Enviar proposta inicial'
@@ -156,8 +151,6 @@ def _get_trade_proposal_state(request, trade_request, proposals):
         'turn_message': (
             'Sua vez de responder.'
             if is_user_turn
-            else 'A troca já foi aprovada. Agora siga para o checkout.'
-            if trade_request.status == TradeRequest.APPROVED
             else 'Aguardando resposta do outro participante.'
         ),
     }
@@ -512,7 +505,7 @@ def history_view(request):
             'cash_amount': cash_amount,
             'has_cash': cash_amount > 0,
             'fulfillment': fulfillment,
-            'is_finished': trade_request.status in TRADE_FINAL_STATUSES,
+            'is_finished': trade_request.status in [TradeRequest.COMPLETED, TradeRequest.CANCELLED],
         }
 
     sent_trade_cards = [build_trade_card(trade_request, 'requested') for trade_request in sent_trades_queryset]
@@ -609,7 +602,7 @@ def trade_request_detail(request, pk):
     if request.user not in [trade_request.requester, trade_request.counterparty]:
         return redirect('trade_requests')
 
-    if trade_request.listing.status != Listing.ACTIVE and trade_request.status not in TRADE_FINAL_STATUSES:
+    if trade_request.listing.status != Listing.ACTIVE and trade_request.status not in [TradeRequest.COMPLETED, TradeRequest.CANCELLED]:
         trade_request.status = TradeRequest.CANCELLED
         trade_request.save(update_fields=['status'])
         messages.info(request, 'Este anúncio já não está disponível. A negociação foi arquivada.')
@@ -688,7 +681,6 @@ def trade_request_detail(request, pk):
         'next_actor': proposal_state['next_actor'],
         'can_create_proposal': proposal_state['can_create_proposal'],
         'can_reject_trade': proposal_state['can_reject_trade'],
-        'can_cancel_trade': proposal_state['can_cancel_trade'],
         'proposal_prompt': proposal_state['proposal_prompt'],
         'proposal_button_label': proposal_state['proposal_button_label'],
         'turn_message': proposal_state['turn_message'],
@@ -708,7 +700,7 @@ def trade_proposal_create(request, pk):
     if request.user not in [trade_request.requester, trade_request.counterparty]:
         return redirect('trade_requests')
 
-    if trade_request.status not in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]:
+    if trade_request.status in [TradeRequest.CANCELLED, TradeRequest.COMPLETED]:
         messages.error(request, 'Esta negociação não aceita novas propostas.')
         return redirect('trade_request_detail', pk=pk)
 
@@ -722,16 +714,15 @@ def trade_proposal_create(request, pk):
             proposals = trade_request.proposals.select_related('proposer').order_by('-created_at')
             latest_proposal = proposals.first()
             next_actor = _get_trade_next_actor(trade_request, latest_proposal)
-            # The first proposal must be sent by the requester (the user who initiated the solicitation)
-            if latest_proposal is None and request.user.id != trade_request.requester_id:
-                messages.error(request, 'A primeira proposta deve ser enviada pelo solicitante (quem iniciou a solicitação).')
+            if latest_proposal is None and request.user_id != trade_request.counterparty_id:
+                messages.error(request, 'A primeira proposta deve ser enviada pela contraparte.')
                 return redirect('trade_request_detail', pk=pk)
 
-            if latest_proposal is not None and request.user.id == latest_proposal.proposer_id:
+            if latest_proposal is not None and request.user_id == latest_proposal.proposer_id:
                 messages.error(request, 'Aguarde a resposta do outro participante antes de enviar outra proposta.')
                 return redirect('trade_request_detail', pk=pk)
 
-            if request.user.id != next_actor.id:
+            if request.user_id != next_actor.id:
                 messages.error(request, 'Você não está na vez de propor.')
                 return redirect('trade_request_detail', pk=pk)
 
@@ -797,17 +788,11 @@ def trade_proposal_accept(request, pk, proposal_pk):
         messages.error(request, 'Você não pode aceitar sua própria proposta.')
         return redirect('trade_request_detail', pk=pk)
 
-    # Only the owner of the listing (counterparty when a user initiated the trade) can accept/finalize a proposal
-    listing_owner = trade_request.listing.seller if hasattr(trade_request, 'listing') else None
-    if listing_owner and request.user.id != listing_owner.id:
-        messages.error(request, 'Apenas o criador do anúncio pode aceitar a proposta.')
-        return redirect('trade_request_detail', pk=pk)
-
     if latest_proposal and proposal.pk != latest_proposal.pk:
         messages.error(request, 'Só é possível aceitar a proposta mais recente.')
         return redirect('trade_request_detail', pk=pk)
 
-    if trade_request.status not in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]:
+    if _is_trade_final(trade_request):
         messages.error(request, 'Esta negociação não pode mais ser aceita.')
         return redirect('trade_request_detail', pk=pk)
 
@@ -841,14 +826,14 @@ def trade_request_reject(request, pk):
     if request.method != 'POST':
         return redirect('trade_request_detail', pk=pk)
 
-    if trade_request.status not in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]:
+    if _is_trade_final(trade_request):
         messages.error(request, 'Esta negociação já foi encerrada.')
         return redirect('trade_request_detail', pk=pk)
 
     latest_proposal = trade_request.proposals.order_by('-created_at', '-id').first()
     next_actor = _get_trade_next_actor(trade_request, latest_proposal)
 
-    if request.user.id != next_actor.id:
+    if request.user_id != next_actor.id:
         messages.error(request, 'A recusa só pode ser feita por quem está com a vez.')
         return redirect('trade_request_detail', pk=pk)
 
@@ -869,10 +854,6 @@ def trade_request_cancel(request, pk):
     trade_request = get_object_or_404(TradeRequest, pk=pk)
 
     if request.user != trade_request.requester:
-        return redirect('trade_request_detail', pk=pk)
-
-    if trade_request.status not in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]:
-        messages.error(request, 'Esta negociação já avançou para a etapa de execução.')
         return redirect('trade_request_detail', pk=pk)
 
     if request.method == 'POST':
@@ -931,9 +912,6 @@ def trade_checkout(request, pk):
                 return redirect('trade_checkout', pk=pk)
             fulfillment.payment_status = TradeFulfillment.COMPLETED
             fulfillment.payment_confirmed_at = timezone.now()
-        else:
-            # no payment required; mark as completed
-            fulfillment.payment_status = TradeFulfillment.COMPLETED
 
         fulfillment.confirmed_at = timezone.now()
         fulfillment.save(update_fields=['payment_status', 'payment_confirmed_at', 'confirmed_at', 'updated_at'])
