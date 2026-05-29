@@ -53,6 +53,21 @@ class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
 
+class MultipleFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        if data in self.empty_values:
+            return []
+
+        if not isinstance(data, (list, tuple)):
+            data = [data]
+
+        cleaned_files = []
+        for file in data:
+            cleaned_files.append(super().clean(file, initial))
+
+        return cleaned_files
+
+
 class ListingForm(forms.ModelForm):
 
     image = forms.ImageField(
@@ -496,10 +511,10 @@ class TradeStatusForm(forms.Form):
 
 
 class TradeProposalForm(forms.ModelForm):
-    images = forms.FileField(
+    images = MultipleFileField(
         required=False,
-        widget=MultipleFileInput(attrs={'accept': 'image/*'}),
-        help_text='Adicione imagens da proposta (opcional).',
+        widget=MultipleFileInput(attrs={'accept': 'image/*', 'multiple': True}),
+        help_text='Adicione uma ou mais imagens da proposta (opcional).',
         label='Imagens'
     )
     class Meta:

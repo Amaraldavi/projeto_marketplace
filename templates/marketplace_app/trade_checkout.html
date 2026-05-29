@@ -30,6 +30,7 @@
 
             <div class="summary-card" style="margin-top: 1.5rem;">
                 <h3>Entrega</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-muted);">Cada participante confirma a própria parte. A troca só é finalizada quando os dois confirmarem.</p>
                 <form method="post">
                     {% csrf_token %}
                     <div class="form-group">
@@ -41,6 +42,9 @@
                         {{ form.delivery_method }}
                     </div>
                     <div class="form-row">
+                                            {% if user_delivery_confirmed %}
+                                                <p style="color: var(--accent-cyan);">Sua parte já foi confirmada.</p>
+                                            {% endif %}
                         <div class="form-group">{{ form.recipient_name.label_tag }}{{ form.recipient_name }}</div>
                         <div class="form-group">{{ form.recipient_phone.label_tag }}{{ form.recipient_phone }}</div>
                     </div>
@@ -50,6 +54,9 @@
                     </div>
                     <div class="form-group">{{ form.street.label_tag }}{{ form.street }}</div>
                     <div class="form-row">
+                                            {% if other_delivery_confirmed %}
+                                                <p style="color: var(--accent-cyan);">O outro participante já confirmou a parte dele.</p>
+                                            {% endif %}
                         <div class="form-group">{{ form.number.label_tag }}{{ form.number }}</div>
                         <div class="form-group">{{ form.complement.label_tag }}{{ form.complement }}</div>
                     </div>
@@ -99,10 +106,14 @@
                             <p style="margin: 0.75rem 0 0; color: var(--text-muted);">Referência da simulação: <strong>{{ qr_token }}</strong></p>
                         </div>
 
-                        <p style="margin-top:0.5rem;color:var(--text-muted);">Apenas o usuário responsável pelo pagamento pode confirmar o pagamento.</p>
-                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar troca</button>
+                        <p style="margin-top:0.5rem;color:var(--text-muted);">Ao confirmar, você registra sua parte e, se for o caso, confirma o pagamento adicional.</p>
+                        {% if user_delivery_confirmed and not can_finalize_trade %}
+                            <button type="submit" class="btn-secondary" style="width: 100%;" disabled>Você já confirmou sua parte</button>
+                        {% else %}
+                            <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar minha parte da troca</button>
+                        {% endif %}
                     {% elif ready_to_confirm %}
-                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar troca</button>
+                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar minha parte da troca</button>
                     {% else %}
                         <button type="submit" class="btn-secondary" style="width: 100%;">Gerar QR de simulação</button>
                     {% endif %}

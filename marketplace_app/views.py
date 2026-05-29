@@ -117,6 +117,26 @@ def _get_trade_checkout(request):
     return request.session.get(TRADE_CHECKOUT_SESSION_KEY)
 
 
+def _get_trade_deliveries(trade_request):
+    return {
+        delivery.user_id: delivery
+        for delivery in TradeDelivery.objects.filter(trade_request=trade_request).select_related('user')
+    }
+
+
+def _can_complete_trade(fulfillment, deliveries):
+    if len(deliveries) < 2:
+        return False
+
+    if any(delivery.status != TradeDelivery.DELIVERED for delivery in deliveries.values()):
+        return False
+
+    if fulfillment.payment_amount > 0 and fulfillment.payment_status != TradeFulfillment.COMPLETED:
+        return False
+
+    return True
+
+
 def _is_trade_final(trade_request):
     return trade_request.status in TRADE_FINAL_STATUSES
 
@@ -740,7 +760,7 @@ def trade_proposal_create(request, pk):
             proposal.proposer = request.user
             proposal.save()
             # handle uploaded images
-            images = request.FILES.getlist('images')
+            images = form.cleaned_data.get('images') or []
             for img in images:
                 TradeProposalImage.objects.create(proposal=proposal, image=img)
             if trade_request.status == TradeRequest.PENDING:
@@ -907,46 +927,14 @@ def trade_checkout(request, pk):
         return redirect('trade_request_detail', pk=pk)
 
     # deliveries for both participants
-    deliveries = {d.user_id: d for d in TradeDelivery.objects.filter(trade_request=trade_request)}
+    deliveries = _get_trade_deliveries(trade_request)
     user_delivery = deliveries.get(request.user.id)
     other_user = trade_request.requester if request.user != trade_request.requester else trade_request.counterparty
     other_delivery = deliveries.get(other_user.id)
 
     trade_checkout_data = _get_trade_checkout(request)
 
-    if request.method == 'POST' and request.POST.get('confirm_trade') == '1':
-        if not trade_checkout_data:
-            messages.error(request, 'Não há uma troca pendente para confirmar.')
-            return redirect('trade_checkout', pk=pk)
-        # ensure both deliveries exist before finalizing
-        if not user_delivery or not other_delivery:
-            messages.error(request, 'Ambas as partes precisam informar o envio antes de confirmar a troca.')
-            return redirect('trade_checkout', pk=pk)
-
-        # if payment is required, only the payer (agreed_proposal.proposer) can confirm payment
-        payer = fulfillment.agreed_proposal.proposer if fulfillment.agreed_proposal else None
-        if fulfillment.payment_amount > 0:
-            if request.user != payer:
-                messages.error(request, 'Apenas o usuário responsável pelo pagamento pode confirmá-lo.')
-                return redirect('trade_checkout', pk=pk)
-            fulfillment.payment_status = TradeFulfillment.COMPLETED
-            fulfillment.payment_confirmed_at = timezone.now()
-        else:
-            # no payment required; mark as completed
-            fulfillment.payment_status = TradeFulfillment.COMPLETED
-
-        fulfillment.confirmed_at = timezone.now()
-        fulfillment.save(update_fields=['payment_status', 'payment_confirmed_at', 'confirmed_at', 'updated_at'])
-
-        trade_request.status = TradeRequest.COMPLETED
-        trade_request.save(update_fields=['status'])
-
-        trade_request.listing.status = Listing.SOLD
-        trade_request.listing.save(update_fields=['status'])
-
-        _clear_trade_checkout(request)
-        messages.success(request, 'Troca confirmada com sucesso.')
-        return redirect('trade_request_detail', pk=pk)
+    payer = fulfillment.agreed_proposal.proposer if fulfillment.agreed_proposal else None
 
     if request.method == 'POST':
         form = TradeFulfillmentForm(request.POST, instance=fulfillment)
@@ -956,6 +944,45 @@ def trade_checkout(request, pk):
                 fulfillment.payment_status = TradeFulfillment.DRAFT
             fulfillment.save()
             _store_trade_checkout(request, trade_request, fulfillment, form)
+
+            if request.POST.get('confirm_trade') == '1':
+                if user_delivery is None:
+                    messages.error(request, 'Preencha seus dados de envio antes de confirmar a troca.')
+                    return redirect('trade_request_detail', pk=pk)
+
+                with transaction.atomic():
+                    fulfillment = TradeFulfillment.objects.select_for_update().get(pk=fulfillment.pk)
+                    user_delivery = TradeDelivery.objects.select_for_update().get(trade_request=trade_request, user=request.user)
+                    user_delivery.status = TradeDelivery.DELIVERED
+                    user_delivery.save(update_fields=['status', 'updated_at'])
+
+                    if fulfillment.payment_amount > 0 and request.user == payer:
+                        fulfillment.payment_status = TradeFulfillment.COMPLETED
+                        fulfillment.payment_confirmed_at = timezone.now()
+
+                    deliveries = _get_trade_deliveries(trade_request)
+                    if _can_complete_trade(fulfillment, deliveries):
+                        fulfillment.confirmed_at = timezone.now()
+                        fulfillment.save(update_fields=['payment_status', 'payment_confirmed_at', 'confirmed_at', 'updated_at'])
+
+                        trade_request.status = TradeRequest.COMPLETED
+                        trade_request.save(update_fields=['status'])
+
+                        trade_request.listing.status = Listing.SOLD
+                        trade_request.listing.save(update_fields=['status'])
+
+                        _clear_trade_checkout(request)
+                        messages.success(request, 'Troca confirmada com sucesso. O histórico foi atualizado.')
+                        return redirect('trade_request_detail', pk=pk)
+
+                    update_fields = ['updated_at']
+                    if fulfillment.payment_amount > 0 and request.user == payer:
+                        update_fields.extend(['payment_status', 'payment_confirmed_at'])
+                    fulfillment.save(update_fields=update_fields)
+
+                messages.success(request, 'Sua confirmação foi registrada. Agora falta a confirmação do outro participante.')
+                return redirect('trade_checkout', pk=pk)
+
             return render(request, 'marketplace_app/trade_checkout.html', {
                 'trade_request': trade_request,
                 'fulfillment': fulfillment,
@@ -967,6 +994,7 @@ def trade_checkout(request, pk):
                 'user_delivery': user_delivery,
                 'other_delivery': other_delivery,
             })
+            messages.error(request, 'Não foi possível salvar os dados da troca.')
     else:
         form = TradeFulfillmentForm(instance=fulfillment, initial={'payment_method': Order.PIX, 'delivery_method': Order.TO_AGREE})
 
@@ -988,6 +1016,10 @@ def trade_checkout(request, pk):
         'qr_token': trade_checkout_data['token'] if trade_checkout_data else '',
         'user_delivery': user_delivery,
         'other_delivery': other_delivery,
+        'user_delivery_confirmed': bool(user_delivery and user_delivery.status == TradeDelivery.DELIVERED),
+        'other_delivery_confirmed': bool(other_delivery and other_delivery.status == TradeDelivery.DELIVERED),
+        'can_finalize_trade': _can_complete_trade(fulfillment, deliveries),
+        'payer': payer,
     })
 
 

@@ -2,6 +2,95 @@
 
 {% block title %}Negociação #{{ trade_request.id }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .trade-image-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .trade-image-thumb {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 8px;
+        line-height: 0;
+    }
+
+    .trade-image-thumb img {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .trade-image-thumb:hover img,
+    .trade-image-thumb:focus-visible img {
+        transform: scale(1.04);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+        outline: none;
+    }
+
+    .trade-image-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+        background: rgba(0, 0, 0, 0.82);
+        z-index: 2000;
+    }
+
+    .trade-image-modal.open {
+        display: flex;
+    }
+
+    .trade-image-modal__panel {
+        position: relative;
+        max-width: min(96vw, 1100px);
+        max-height: 92vh;
+    }
+
+    .trade-image-modal__image {
+        display: block;
+        max-width: 100%;
+        max-height: 92vh;
+        border-radius: 14px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        background: #000;
+    }
+
+    .trade-image-modal__close {
+        position: absolute;
+        top: -0.75rem;
+        right: -0.75rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #111827;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .trade-image-modal__caption {
+        margin-top: 0.75rem;
+        color: var(--text-white);
+        text-align: center;
+        font-size: 0.95rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h2 class="section-title"><span class="material-icons">forum</span> Negociação #{{ trade_request.id }}</h2>
@@ -80,9 +169,17 @@
                         <p><strong>Dinheiro extra:</strong> R$ {{ proposal.cash_amount|floatformat:2 }}</p>
                         <p>{{ proposal.note|default:'-' }}</p>
                             {% if proposal.images.all %}
-                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                                <div class="trade-image-grid">
                                     {% for img in proposal.images.all %}
-                                        <img src="{{ img.image.url }}" alt="Imagem da proposta" style="width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--border-color);"/>
+                                        <button
+                                            type="button"
+                                            class="trade-image-thumb js-trade-image-viewer"
+                                            data-full-src="{{ img.image.url }}"
+                                            data-caption="Imagem da proposta de {{ proposal.proposer.username }}"
+                                            aria-label="Abrir imagem da proposta em tamanho maior"
+                                        >
+                                            <img src="{{ img.image.url }}" alt="Imagem da proposta" />
+                                        </button>
                                     {% endfor %}
                                 </div>
                             {% endif %}
@@ -150,6 +247,33 @@
                     <p style="margin-bottom: 1rem; color: var(--text-muted);">{{ turn_message }}</p>
                 {% endif %}
 
+                <div style="margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border-color); border-radius: 16px; background: rgba(255,255,255,0.02);">
+                    <h4 style="margin-top: 0;">Status das confirmações</h4>
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">A troca só é concluída quando os dois participantes registram a própria confirmação.</p>
+                    <div style="display:grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                        <div style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 12px;">
+                            <p style="margin-bottom: 0.5rem; font-weight: 700;">Você</p>
+                            {% if user_delivery %}
+                                <p style="margin-bottom: 0.35rem;"><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
+                                <p style="margin-bottom: 0.35rem;"><strong>Endereço:</strong> {{ user_delivery.street }} {{ user_delivery.number }}, {{ user_delivery.city }} - {{ user_delivery.state }}</p>
+                                <p style="margin-bottom: 0; color: var(--text-muted);">{{ user_delivery.recipient_name|default:'-' }}</p>
+                            {% else %}
+                                <p style="margin-bottom: 0; color: var(--text-muted);">Você ainda não informou o envio.</p>
+                            {% endif %}
+                        </div>
+                        <div style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 12px;">
+                            <p style="margin-bottom: 0.5rem; font-weight: 700;">Outro participante</p>
+                            {% if other_delivery %}
+                                <p style="margin-bottom: 0.35rem;"><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
+                                <p style="margin-bottom: 0.35rem;"><strong>Endereço:</strong> {{ other_delivery.street }} {{ other_delivery.number }}, {{ other_delivery.city }} - {{ other_delivery.state }}</p>
+                                <p style="margin-bottom: 0; color: var(--text-muted);">{{ other_delivery.recipient_name|default:'-' }}</p>
+                            {% else %}
+                                <p style="margin-bottom: 0; color: var(--text-muted);">O outro participante ainda não informou o envio.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 <hr style="margin: 1.5rem 0; border-color: var(--border-color);">
                 <h4>Suas informações de envio</h4>
                 <form method="post" action="{% url 'trade_delivery' trade_request.id %}" style="margin-bottom: 1rem;">
@@ -201,4 +325,63 @@
         </div>
     </div>
 </div>
+
+<div class="trade-image-modal" id="trade-image-modal" aria-hidden="true">
+    <div class="trade-image-modal__panel" role="dialog" aria-modal="true" aria-label="Visualização da imagem da proposta">
+        <button type="button" class="trade-image-modal__close" id="trade-image-modal-close" aria-label="Fechar visualização">&times;</button>
+        <img class="trade-image-modal__image" id="trade-image-modal-image" src="" alt="Imagem ampliada da proposta">
+        <div class="trade-image-modal__caption" id="trade-image-modal-caption"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modal = document.getElementById('trade-image-modal');
+        const modalImage = document.getElementById('trade-image-modal-image');
+        const modalCaption = document.getElementById('trade-image-modal-caption');
+        const closeButton = document.getElementById('trade-image-modal-close');
+
+        if (!modal || !modalImage || !modalCaption || !closeButton) {
+            return;
+        }
+
+        const openModal = (src, caption) => {
+            modalImage.src = src;
+            modalCaption.textContent = caption || '';
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+            closeButton.focus();
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            modalImage.src = '';
+            modalCaption.textContent = '';
+        };
+
+        document.querySelectorAll('.js-trade-image-viewer').forEach((button) => {
+            button.addEventListener('click', () => {
+                openModal(button.dataset.fullSrc, button.dataset.caption);
+            });
+        });
+
+        closeButton.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && modal.classList.contains('open')) {
+                closeModal();
+            }
+        });
+    });
+</script>
 {% endblock %}

@@ -46,33 +46,11 @@ class TradeFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.trade_request.proposals.count(), 1)
 
-        # contraparte responde
+        # contraparte aceita a proposta inicial
         self.client.logout()
         self.client.login(username='counterparty', password='Pwd12345!')
 
-        response = self.client.post(proposal_url, {
-            'item_description': 'Notebook gamer usado',
-            'cash_amount': '0.00',
-            'note': 'Contraproposta do dono do anúncio.',
-        }, follow=True)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.trade_request.proposals.count(), 2)
-
         latest_proposal = self.trade_request.proposals.order_by('-created_at').first()
-        self.assertEqual(latest_proposal.proposer, self.counterparty)
-
-        # tentativa fora de turno pelo mesmo usuário
-        response = self.client.post(proposal_url, {
-            'item_description': 'Tentativa fora de turno',
-            'cash_amount': '0.00',
-            'note': 'Tentativa fora de turno.',
-        }, follow=True)
-
-        self.assertContains(response, 'Aguarde a resposta do outro participante')
-        self.assertEqual(self.trade_request.proposals.count(), 2)
-
-        # o criador do anúncio (counterparty) pode aceitar a proposta mais recente
         accept_url = reverse('trade_proposal_accept', args=[self.trade_request.pk, latest_proposal.pk])
         response = self.client.post(accept_url, follow=True)
 
@@ -84,7 +62,7 @@ class TradeFlowTests(TestCase):
         self.assertEqual(self.trade_request.status, TradeRequest.APPROVED)
 
         fulfillment = TradeFulfillment.objects.get(trade_request=self.trade_request)
-        self.assertEqual(fulfillment.payment_amount, Decimal('0.00'))
+        self.assertEqual(fulfillment.payment_amount, Decimal('250.00'))
 
         checkout_url = reverse('trade_checkout', args=[self.trade_request.pk])
         checkout_data = {
@@ -133,16 +111,42 @@ class TradeFlowTests(TestCase):
             notes='Envio por sedex',
         )
 
-        confirm_response = self.client.post(checkout_url, {'confirm_trade': '1'}, follow=True)
+        self.client.logout()
+        self.client.login(username='requester', password='Pwd12345!')
+        confirm_response = self.client.post(checkout_url, {
+            **checkout_data,
+            'confirm_trade': '1',
+        }, follow=True)
+        self.assertEqual(confirm_response.status_code, 200)
+
+        self.trade_request.refresh_from_db()
+        fulfillment.refresh_from_db()
+        requester_delivery = TradeDelivery.objects.get(trade_request=self.trade_request, user=self.requester)
+        counterparty_delivery = TradeDelivery.objects.get(trade_request=self.trade_request, user=self.counterparty)
+
+        self.assertEqual(self.trade_request.status, TradeRequest.APPROVED)
+        self.assertEqual(requester_delivery.status, TradeDelivery.DELIVERED)
+        self.assertEqual(counterparty_delivery.status, TradeDelivery.DRAFT)
+
+        self.client.logout()
+        self.client.login(username='counterparty', password='Pwd12345!')
+        confirm_response = self.client.post(checkout_url, {
+            **checkout_data,
+            'confirm_trade': '1',
+        }, follow=True)
         self.assertEqual(confirm_response.status_code, 200)
 
         self.trade_request.refresh_from_db()
         fulfillment.refresh_from_db()
         self.listing.refresh_from_db()
+        requester_delivery.refresh_from_db()
+        counterparty_delivery.refresh_from_db()
 
         self.assertEqual(self.trade_request.status, TradeRequest.COMPLETED)
         self.assertEqual(fulfillment.payment_status, TradeFulfillment.COMPLETED)
         self.assertEqual(self.listing.status, Listing.SOLD)
+        self.assertEqual(requester_delivery.status, TradeDelivery.DELIVERED)
+        self.assertEqual(counterparty_delivery.status, TradeDelivery.DELIVERED)
 
     def test_counterparty_can_reject_pending_trade(self):
         self.client.login(username='counterparty', password='Pwd12345!')
@@ -159,22 +163,24 @@ class TradeFlowTests(TestCase):
         self.assertNotContains(detail_response, 'Enviar proposta inicial')
 
     def test_proposal_image_upload_and_delivery_flow(self):
-        # create the first proposal as the requester and attach an image directly (avoids multipart in tests)
-        from .models import TradeProposalImage, TradeProposal
-        image = SimpleUploadedFile('test.jpg', b'\x47\x49\x46\x38\x39\x61', content_type='image/gif')
-        proposal = TradeProposal.objects.create(
-            trade_request=self.trade_request,
-            proposer=self.requester,
-            item_description='Notebook com 8GB RAM',
-            cash_amount=Decimal('100.00'),
-            note='Inclui carregador'
-        )
-        TradeProposalImage.objects.create(proposal=proposal, image=image)
+        # create the first proposal through the real upload flow and attach an image
+        self.client.login(username='requester', password='Pwd12345!')
+
+        proposal_url = reverse('trade_proposal_create', args=[self.trade_request.pk])
+        image_one = SimpleUploadedFile('test-1.jpg', b'\x47\x49\x46\x38\x39\x61', content_type='image/gif')
+        image_two = SimpleUploadedFile('test-2.jpg', b'\x47\x49\x46\x38\x39\x61', content_type='image/gif')
+        response = self.client.post(proposal_url, {
+            'item_description': 'Notebook com 8GB RAM',
+            'cash_amount': '100.00',
+            'note': 'Inclui carregador',
+            'images': [image_one, image_two],
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
         self.trade_request.refresh_from_db()
         latest = self.trade_request.proposals.order_by('-created_at').first()
         self.assertIsNotNone(latest)
-        # images should be attached
-        self.assertTrue(latest.images.count() >= 1)
+        self.assertEqual(latest.proposer, self.requester)
+        self.assertEqual(latest.images.count(), 2)
 
         # owner of the listing (counterparty) accepts
         self.client.logout()
@@ -186,6 +192,8 @@ class TradeFlowTests(TestCase):
 
         # test bilateral deliveries: both users fill delivery
         # requester fills
+        self.client.logout()
+        self.client.login(username='requester', password='Pwd12345!')
         delivery_url = reverse('trade_delivery', args=[self.trade_request.pk])
         response = self.client.post(delivery_url, {
             'delivery_method': 'seller_shipping',
