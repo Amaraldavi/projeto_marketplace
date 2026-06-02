@@ -189,6 +189,7 @@ CORS_ALLOWED_ORIGINS = [
     FRONTEND_URL,
     'http://127.0.0.1:5173',
     'http://localhost:5173',
+    'http://192.168.101.106:8080',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -231,3 +232,11 @@ X_FRAME_OPTIONS = env('X_FRAME_OPTIONS', default='DENY')
 # Enforce ALLOWED_HOSTS in production - keep empty for local development
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be set in production')
+
+# Django REST framework settings - enable JWT authentication
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+}

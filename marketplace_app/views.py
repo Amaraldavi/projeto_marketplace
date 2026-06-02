@@ -26,7 +26,7 @@ from .forms import (
 )
 from .forms import IndividualRegistrationForm, StoreRegistrationForm
 from rest_framework import generics
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Listing
 from .serializers import ListingSerializer
 from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm
@@ -34,6 +34,8 @@ from .models import Listing, ListingImage, Category, StoreProfile, CommonProfile
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
@@ -97,6 +99,199 @@ def home(request):
     }
 
     return render(request, 'home.html', context)
+
+
+def build_user_data(user, request):
+    user_data = {
+        'username': user.username,
+        'email': user.email,
+        'is_store': user.is_store,
+        'full_name': f"{user.first_name} {user.last_name}".strip(),
+        'profile_picture': None,
+    }
+
+    if user.profile_picture:
+        user_data['profile_picture'] = request.build_absolute_uri(user.profile_picture.url)
+
+    if user.is_store:
+        profile, _ = StoreProfile.objects.get_or_create(user=user)
+        user_data.update({
+            'cnpj': profile.cnpj,
+            'razao_social': profile.razao_social,
+            'fantasy_name': profile.fantasy_name,
+            'state_registration': profile.state_registration,
+            'responsible_name': profile.responsible_name,
+            'responsible_cpf': profile.responsible_cpf,
+            'store_phone': profile.phone,
+            'store_email': profile.email,
+            'commercial_cep': profile.commercial_cep,
+            'commercial_address': profile.commercial_address,
+        })
+    else:
+        profile, _ = CommonProfile.objects.get_or_create(user=user)
+        user_data.update({
+            'cpf': profile.cpf,
+            'birth_date': profile.birth_date.isoformat() if profile.birth_date else None,
+            'phone': profile.phone,
+            'cep': profile.cep,
+            'address': profile.address,
+        })
+
+    return user_data
+
+
+class EmailLoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response(
+                {'detail': 'E-mail e senha são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Credenciais inválidas.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        authenticated_user = authenticate(request, username=user.username, password=password)
+        if authenticated_user is None:
+            return Response(
+                {'detail': 'Credenciais inválidas.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        refresh = RefreshToken.for_user(authenticated_user)
+        user_data = build_user_data(authenticated_user, request)
+
+        return Response(
+            {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': user_data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        return Response(build_user_data(request.user, request))
+
+    def put(self, request):
+        user = request.user
+        payload = request.data
+
+        # handle possible multipart/form-data: payload may be in request.data
+        if 'username' in payload:
+            user.username = payload.get('username', user.username)
+        if 'email' in payload:
+            user.email = payload.get('email', user.email)
+
+        full_name = payload.get('full_name')
+        if full_name is not None:
+            full_name = full_name.strip()
+            parts = full_name.split()
+            user.first_name = parts[0] if parts else ''
+            user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+
+        # handle profile picture upload
+        if request.FILES.get('profile_picture'):
+            user.profile_picture = request.FILES.get('profile_picture')
+
+        profile = None
+        if user.is_store:
+            profile, _ = StoreProfile.objects.get_or_create(user=user)
+            profile.cnpj = payload.get('cnpj', profile.cnpj)
+            profile.razao_social = payload.get('razao_social', profile.razao_social)
+            profile.fantasy_name = payload.get('fantasy_name', profile.fantasy_name)
+            profile.state_registration = payload.get('state_registration', profile.state_registration)
+            profile.responsible_name = payload.get('responsible_name', profile.responsible_name)
+            profile.phone = payload.get('store_phone', profile.phone)
+            profile.email = payload.get('store_email', profile.email)
+            profile.commercial_cep = payload.get('commercial_cep', profile.commercial_cep)
+            profile.commercial_address = payload.get('commercial_address', profile.commercial_address)
+        else:
+            profile, _ = CommonProfile.objects.get_or_create(user=user)
+            birth_date = payload.get('birth_date')
+            if birth_date is not None:
+                profile.birth_date = birth_date
+            profile.phone = payload.get('phone', profile.phone)
+            profile.cep = payload.get('cep', profile.cep)
+            profile.address = payload.get('address', profile.address)
+
+        try:
+            user.full_clean()
+            profile.full_clean()
+            update_fields = ['username', 'email', 'first_name', 'last_name']
+            # If a new profile picture was provided, include it in fields to save
+            if request.FILES.get('profile_picture'):
+                update_fields.append('profile_picture')
+
+            user.save(update_fields=update_fields)
+            profile.save()
+        except ValidationError as error:
+            error_data = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
+            return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(build_user_data(user, request))
+
+
+class CartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        items = cart.items.select_related('listing', 'listing__seller', 'listing__category').all().order_by('-added_at')
+        buy_items = [item for item in items if item.desired_action == CartItem.BUY]
+        trade_items = [item for item in items if item.desired_action == CartItem.TRADE]
+        total = sum(item.listing.price for item in buy_items)
+
+        data = {
+            'items': [
+                {
+                    'id': item.pk,
+                    'desired_action': item.desired_action,
+                    'listing': {
+                        'id': item.listing.pk,
+                        'title': item.listing.title,
+                        'price': float(item.listing.price),
+                        'status': item.listing.status,
+                        'listing_type': item.listing.listing_type,
+                        'seller': item.listing.seller.username,
+                        'image': request.build_absolute_uri(item.listing.images.first().image.url) if item.listing.images.exists() else None,
+                    },
+                }
+                for item in items
+            ],
+            'buy_count': len(buy_items),
+            'trade_count': len(trade_items),
+            'total': float(total),
+        }
+        return Response(data)
+
+
+class CartItemAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def delete(self, request, pk):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart_item = get_object_or_404(CartItem, pk=pk, cart=cart)
+        cart_item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @login_required
