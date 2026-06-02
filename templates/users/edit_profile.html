@@ -1,118 +1,276 @@
 {% extends 'base.html' %}
 
-{% block title %}Editar Perfil{% endblock %}
+{% block title %}Editar Perfil — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">account_circle</span> Editar Perfil</h2>
+
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">Editar Perfil</span>
+    </nav>
+
+    <h2 class="section-title"><span class="material-icons">manage_accounts</span> Editar Perfil</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-message">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
 
     <div class="profile-edit-grid">
+
+        <!-- ===== COLUNA LATERAL: avatar + resumo ===== -->
         <div class="profile-card">
-            <div class="profile-avatar">
+            <div class="profile-avatar" id="js-avatar-preview-wrapper">
                 {% if user.profile_picture %}
-                <img src="{{ user.profile_picture.url }}" alt="Foto de {{ user.username }}">
+                    <img src="{{ user.profile_picture.url }}" alt="Foto de {{ user.username }}" id="js-avatar-preview">
                 {% else %}
-                <span class="material-icons">person</span>
+                    <span class="material-icons" id="js-avatar-icon">person</span>
+                    <img src="" alt="" id="js-avatar-preview" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;">
                 {% endif %}
             </div>
             <div class="profile-summary">
                 <h3>{{ user.username }}</h3>
-                <p>{{ user.email }}</p>
-                <p>{{ user.first_name }} {{ user.last_name }}</p>
-                <p>{% if is_store %}Conta Loja{% else %}Conta Pessoal{% endif %}</p>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">{{ user.email }}</p>
+                {% if user.first_name or user.last_name %}
+                    <p>{{ user.first_name }} {{ user.last_name }}</p>
+                {% endif %}
+                <p style="margin-top: 0.5rem;">
+                    <span class="badge {% if is_store %}badge-info{% else %}badge-pending{% endif %}" style="font-size: 0.78rem;">
+                        {% if is_store %}Conta Loja{% else %}Conta Pessoal{% endif %}
+                    </span>
+                </p>
             </div>
         </div>
 
+        <!-- ===== COLUNA PRINCIPAL: formulário ===== -->
         <div class="profile-form-card">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-message">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
-                
+
+                <!-- ---- Dados pessoais ---- -->
+                <h3 style="margin-bottom: 1rem; color: var(--text-white); display:flex; align-items:center; gap:0.4rem;">
+                    <span class="material-icons" style="font-size:1.2rem;">person</span> Dados pessoais
+                </h3>
+
                 <div class="form-row">
                     <div class="form-group">
                         {{ user_form.first_name.label_tag }}
                         {{ user_form.first_name }}
                         {% if user_form.first_name.errors %}
-                            <div class="error-message">
-                                {{ user_form.first_name.errors }}
-                            </div>
+                            <div class="field-error">{{ user_form.first_name.errors }}</div>
                         {% endif %}
                     </div>
                     <div class="form-group">
                         {{ user_form.last_name.label_tag }}
                         {{ user_form.last_name }}
                         {% if user_form.last_name.errors %}
-                            <div class="error-message">
-                                {{ user_form.last_name.errors }}
-                            </div>
+                            <div class="field-error">{{ user_form.last_name.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_form.email.label_tag }}
-                        {{ user_form.email }}
-                        {% if user_form.email.errors %}
-                            <div class="error-message">
-                                {{ user_form.email.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <div class="form-control" style="opacity: 0.6; cursor: not-allowed; user-select: all;">{{ user.email }}</div>
+                    <small style="color: var(--text-muted); font-size: 0.78rem;">O e-mail não pode ser alterado após o cadastro.</small>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_form.profile_picture.label_tag }}
-                        <div class="file-input-wrapper">
-                            {{ user_form.profile_picture }}
-                            <label for="id_profile_picture" class="file-input-label">
-                                <span class="material-icons">image</span>
-                                Escolher Foto de Perfil
-                            </label>
-                        </div>
-                        {% if user_form.profile_picture.errors %}
-                            <div class="error-message">
-                                {{ user_form.profile_picture.errors }}
-                            </div>
-                        {% endif %}
+                <!-- ---- Foto de perfil ---- -->
+                <h3 style="margin: 1.5rem 0 1rem; color: var(--text-white); display:flex; align-items:center; gap:0.4rem;">
+                    <span class="material-icons" style="font-size:1.2rem;">photo_camera</span> Foto de perfil
+                </h3>
+
+                <div class="form-group">
+                    <div class="file-input-wrapper">
+                        {{ user_form.profile_picture }}
+                        <label for="{{ user_form.profile_picture.id_for_label }}" class="file-input-label">
+                            <span class="material-icons">add_photo_alternate</span>
+                            <span id="js-file-label-text">
+                                {% if user.profile_picture %}Substituir foto{% else %}Escolher foto{% endif %}
+                            </span>
+                        </label>
                     </div>
+                    {% if user_form.profile_picture.errors %}
+                        <div class="field-error">{{ user_form.profile_picture.errors }}</div>
+                    {% endif %}
+                    {% if user.profile_picture %}
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
+                            <span class="material-icons" style="font-size:14px; vertical-align:middle;">check_circle</span>
+                            Foto atual salva. Selecione uma nova para substituir.
+                        </p>
+                    {% endif %}
                 </div>
 
+                <!-- ---- Dados do perfil (pessoal ou loja) ---- -->
                 {% if profile_form %}
-                <div class="form-row">
-                    <div class="form-group" style="width: 100%;">
-                        <h3 style="margin-bottom: 1rem;">Dados do Perfil</h3>
-                        {% if profile_form.non_field_errors %}
-                            <div class="error-message">{{ profile_form.non_field_errors }}</div>
-                        {% endif %}
-                        {% for field in profile_form %}
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                {{ field.label_tag }}
-                                {{ field }}
-                                {% if field.errors %}
-                                    <div class="error-message">{{ field.errors }}</div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+                <h3 style="margin-bottom: 1rem; color: var(--text-white); display:flex; align-items:center; gap:0.4rem;">
+                    <span class="material-icons" style="font-size:1.2rem;">{% if is_store %}store{% else %}badge{% endif %}</span>
+                    {% if is_store %}Dados da loja{% else %}Dados pessoais complementares{% endif %}
+                </h3>
+
+                {% if profile_form.non_field_errors %}
+                    <div class="field-error" style="margin-bottom: 1rem;">{{ profile_form.non_field_errors }}</div>
                 {% endif %}
 
-                <div class="form-actions">
-                    <button type="submit" class="btn-secondary">Salvar alterações</button>
-                    <a href="{% url 'change_password' %}" class="btn-theme">Alterar Senha</a>
-                    <a href="{% url 'home' %}" class="btn-primary">Voltar</a>
+                {% if is_store %}
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.cnpj.label_tag }}
+                            {{ profile_form.cnpj }}
+                            {% if profile_form.cnpj.errors %}<div class="field-error">{{ profile_form.cnpj.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.razao_social.label_tag }}
+                            {{ profile_form.razao_social }}
+                            {% if profile_form.razao_social.errors %}<div class="field-error">{{ profile_form.razao_social.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.fantasy_name.label_tag }}
+                            {{ profile_form.fantasy_name }}
+                            {% if profile_form.fantasy_name.errors %}<div class="field-error">{{ profile_form.fantasy_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.state_registration.label_tag }}
+                            {{ profile_form.state_registration }}
+                            {% if profile_form.state_registration.errors %}<div class="field-error">{{ profile_form.state_registration.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.responsible_name.label_tag }}
+                            {{ profile_form.responsible_name }}
+                            {% if profile_form.responsible_name.errors %}<div class="field-error">{{ profile_form.responsible_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.responsible_cpf.label_tag }}
+                            {{ profile_form.responsible_cpf }}
+                            {% if profile_form.responsible_cpf.errors %}<div class="field-error">{{ profile_form.responsible_cpf.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.phone.label_tag }}
+                            {{ profile_form.phone }}
+                            {% if profile_form.phone.errors %}<div class="field-error">{{ profile_form.phone.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.email.label_tag }}
+                            {{ profile_form.email }}
+                            {% if profile_form.email.errors %}<div class="field-error">{{ profile_form.email.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.commercial_cep.label_tag }}
+                            {{ profile_form.commercial_cep }}
+                            {% if profile_form.commercial_cep.errors %}<div class="field-error">{{ profile_form.commercial_cep.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.commercial_address.label_tag }}
+                            {{ profile_form.commercial_address }}
+                            {% if profile_form.commercial_address.errors %}<div class="field-error">{{ profile_form.commercial_address.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.phone.label_tag }}
+                            {{ profile_form.phone }}
+                            {% if profile_form.phone.errors %}<div class="field-error">{{ profile_form.phone.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.birth_date.label_tag }}
+                            {{ profile_form.birth_date }}
+                            <small style="color: var(--text-muted); font-size: 0.78rem;">Necessário ter 18 anos ou mais.</small>
+                            {% if profile_form.birth_date.errors %}<div class="field-error">{{ profile_form.birth_date.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ profile_form.cep.label_tag }}
+                            {{ profile_form.cep }}
+                            {% if profile_form.cep.errors %}<div class="field-error">{{ profile_form.cep.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ profile_form.address.label_tag }}
+                            {{ profile_form.address }}
+                            {% if profile_form.address.errors %}<div class="field-error">{{ profile_form.address.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+                {% endif %}
+
+                <!-- ---- Ações ---- -->
+                <div class="profile-form-actions" style="margin-top: 1.75rem;">
+                    <button type="submit" class="btn-secondary">
+                        <span class="material-icons">save</span> Salvar alterações
+                    </button>
+                    <a href="{% url 'change_password' %}" class="btn-theme">
+                        <span class="material-icons">lock</span> Alterar senha
+                    </a>
+                    <a href="{% url 'home' %}" class="btn-primary">
+                        <span class="material-icons">arrow_back</span> Voltar
+                    </a>
                 </div>
+
             </form>
         </div>
+
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ---- Preview da foto de perfil ----
+    const fileInput = document.getElementById('{{ user_form.profile_picture.id_for_label }}');
+    if (fileInput) {
+        const preview   = document.getElementById('js-avatar-preview');
+        const icon      = document.getElementById('js-avatar-icon');
+        const labelText = document.getElementById('js-file-label-text');
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+                if (icon) icon.style.display = 'none';
+                if (labelText) labelText.textContent = file.name;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ---- Máscara de CEP ----
+    function formatCep(value) {
+        const digits = value.replace(/\D/g, '').slice(0, 8);
+        return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    }
+
+    ['id_cep', 'id_commercial_cep'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => { el.value = formatCep(el.value); });
+    });
+
+    // ---- Data de nascimento: max = hoje − 18 anos ----
+    const birthInput = document.getElementById('id_birth_date');
+    if (birthInput) {
+        const today = new Date();
+        const max = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+        birthInput.max = max.toISOString().split('T')[0];
+    }
+
+});
+</script>
 {% endblock %}

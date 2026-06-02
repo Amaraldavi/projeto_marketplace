@@ -188,8 +188,8 @@
         <!-- ======== SIDEBAR DE AÇÃO ======== -->
         <div>
 
-            <!-- Card de ação contextual -->
-            <div class="summary-card action-card" style="margin-bottom: 1.25rem;">
+            <!-- Card de ação contextual; sticky só quando o card é curto (sem formulário de proposta) -->
+            <div class="summary-card {% if trade_request.status == 'approved' or can_accept_proposal and not can_create_proposal %}action-card{% endif %}" style="margin-bottom: 1.25rem;">
 
                 {% if can_accept_proposal or can_create_proposal %}
                     <div class="action-card-label is-my-turn">
@@ -505,6 +505,22 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
     }
+
+    // ---- Máscara de moeda (R$) ----
+    function applyMoneyMask(input) {
+        let digits = input.value.replace(/\D/g, '');
+        if (!digits) { input.value = ''; return; }
+        let num = parseInt(digits, 10);
+        let cents = String(num % 100).padStart(2, '0');
+        let reais = String(Math.floor(num / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        input.value = 'R$ ' + reais + ',' + cents;
+    }
+
+    document.querySelectorAll('.js-money-brl').forEach(input => {
+        input.addEventListener('input', () => applyMoneyMask(input));
+        input.addEventListener('focus', () => { if (!input.value) input.value = 'R$ 0,00'; });
+        input.addEventListener('blur',  () => { if (input.value === 'R$ 0,00') input.value = ''; });
+    });
 
     // ---- Feedback no input de imagens da proposta ----
     const fileInput = document.getElementById('{{ proposal_form.images.id_for_label }}');

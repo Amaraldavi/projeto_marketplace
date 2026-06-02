@@ -90,6 +90,7 @@
                         <div class="form-group">
                             <label for="birth_date"><span class="material-icons">calendar_today</span> Data de Nascimento</label>
                             <input type="date" id="birth_date" name="birth_date" required value="{{ form_values.birth_date|default:'' }}">
+                            <small style="color: var(--text-muted); font-size: 0.78rem;">Necessário ter 18 anos ou mais.</small>
                             {% if form_errors.birth_date %}
                                 <div class="field-error">{{ form_errors.birth_date|join:" " }}</div>
                             {% endif %}
@@ -415,17 +416,27 @@ function updateSubmitState() {
     const emailField = selectedAccountType === 'individual'
         ? document.getElementById('email')
         : document.getElementById('store_email');
+    const cepField = selectedAccountType === 'individual'
+        ? document.getElementById('cep')
+        : document.getElementById('store_cep');
     const activePasswords = getActivePasswordFields();
 
     const cpfValid = cpfField ? validateCpfValue(cpfField.value) : false;
     const phoneValid = phoneField ? validatePhoneValue(phoneField.value) : false;
     const emailValid = emailField ? emailField.checkValidity() : false;
+    const cepValid = cepField ? validateCepValue(cepField.value) : false;
     const passwordsMatch = activePasswords.password && activePasswords.confirmPassword
         ? activePasswords.password.value.length > 0 && activePasswords.password.value === activePasswords.confirmPassword.value
         : false;
     const formValid = registrationForm ? registrationForm.checkValidity() : false;
 
-    submitButton.disabled = !(formValid && cpfValid && phoneValid && emailValid && passwordsMatch);
+    let birthDateValid = true;
+    if (selectedAccountType === 'individual') {
+        const birthDateField = document.getElementById('birth_date');
+        birthDateValid = birthDateField ? validateBirthDate(birthDateField.value) : false;
+    }
+
+    submitButton.disabled = !(formValid && cpfValid && phoneValid && emailValid && cepValid && birthDateValid && passwordsMatch);
 }
 
 function selectAccountType(event, type) {
@@ -546,11 +557,34 @@ function toggleStoreConfirmPassword() {
     }
 }
 
+function formatCep(value) {
+    const digits = stripDigits(value).slice(0, 8);
+    if (digits.length > 5) {
+        return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    }
+    return digits;
+}
+
+function validateCepValue(value) {
+    return stripDigits(value).length === 8;
+}
+
+function validateBirthDate(value) {
+    if (!value) return false;
+    const birth = new Date(value + 'T00:00:00');
+    const today = new Date();
+    const limit = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    return birth <= limit;
+}
+
 function applyRegistrationMasks() {
     const cpfInput = document.getElementById('cpf');
     const responsibleCpfInput = document.getElementById('responsible_cpf');
     const phoneInput = document.getElementById('phone');
     const storePhoneInput = document.getElementById('store_phone');
+    const cepInput = document.getElementById('cep');
+    const storeCepInput = document.getElementById('store_cep');
+    const birthDateInput = document.getElementById('birth_date');
 
     [cpfInput, responsibleCpfInput].forEach((input) => {
         if (!input) return;
@@ -567,6 +601,21 @@ function applyRegistrationMasks() {
             updateSubmitState();
         });
     });
+
+    [cepInput, storeCepInput].forEach((input) => {
+        if (!input) return;
+        input.addEventListener('input', () => {
+            input.value = formatCep(input.value);
+            updateSubmitState();
+        });
+    });
+
+    if (birthDateInput) {
+        const today = new Date();
+        const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+        birthDateInput.max = maxDate.toISOString().split('T')[0];
+        birthDateInput.addEventListener('change', updateSubmitState);
+    }
 }
 
 function bindLiveValidation() {

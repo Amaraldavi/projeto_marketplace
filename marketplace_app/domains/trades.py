@@ -88,12 +88,11 @@ def _get_trade_proposal_state(request, trade_request, proposals):
     is_requester = request.user.id == trade_request.requester_id
     is_owner = request.user.id == trade_request.counterparty_id
 
-    # The listing owner is the only one who can accept a proposal (and only one made
-    # by the other side). A proposal can be rejected only once it exists.
+    # Either participant can accept the latest proposal, as long as it was made by the
+    # other side and the negotiation is still active.
     can_accept_proposal = (
         latest_proposal is not None
         and is_active_negotiation
-        and is_owner
         and latest_proposal.proposer_id != request.user.id
     )
 
@@ -352,11 +351,6 @@ def trade_proposal_accept(request, pk, proposal_pk):
 
     if proposal.proposer_id == request.user.id:
         messages.error(request, 'Você não pode aceitar sua própria proposta.')
-        return redirect('trade_request_detail', pk=pk)
-
-    listing_owner = trade_request.listing.seller if hasattr(trade_request, 'listing') else None
-    if listing_owner and request.user.id != listing_owner.id:
-        messages.error(request, 'Apenas o criador do anúncio pode aceitar a proposta.')
         return redirect('trade_request_detail', pk=pk)
 
     if latest_proposal and proposal.pk != latest_proposal.pk:

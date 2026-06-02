@@ -51,6 +51,13 @@ def _format_phone(value):
     return f'({digits[:2]}) {digits[2:7]}-{digits[7:]}'
 
 
+def _format_cep(value):
+    digits = _only_digits(value)[:8]
+    if len(digits) == 8:
+        return f'{digits[:5]}-{digits[5:]}'
+    return value
+
+
 def _format_currency(value):
     if value in (None, ''):
         return ''
@@ -236,14 +243,17 @@ class ListingForm(forms.ModelForm):
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'profile_picture']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['profile_picture'].widget.attrs.update({
-            'class': 'file-input',
-            'accept': 'image/*'
-        })
+        fields = ['first_name', 'last_name', 'profile_picture']
+        labels = {
+            'first_name': 'Nome',
+            'last_name': 'Sobrenome',
+            'profile_picture': 'Foto de perfil',
+        }
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu nome'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu sobrenome'}),
+            'profile_picture': forms.FileInput(attrs={'class': 'file-input', 'accept': 'image/*'}),
+        }
 
 
 class ChangePasswordForm(forms.Form):
@@ -288,15 +298,49 @@ class CommonProfileForm(forms.ModelForm):
     class Meta:
         model = CommonProfile
         fields = ['birth_date', 'phone', 'cep', 'address']
+        labels = {
+            'birth_date': 'Data de nascimento',
+            'phone': 'Telefone',
+            'cep': 'CEP',
+            'address': 'Endereço',
+        }
         widgets = {
-            'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'birth_date': forms.DateInput(
+                attrs={'class': 'form-control', 'type': 'date'},
+                format='%Y-%m-%d',
+            ),
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
             'cep': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
             'address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Rua, número, complemento'}),
         }
 
+    def clean_birth_date(self):
+        from datetime import date
+        birth_date = self.cleaned_data.get('birth_date')
+        if not birth_date:
+            return birth_date
+        today = date.today()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        if age < 18:
+            raise forms.ValidationError('É necessário ter pelo menos 18 anos.')
+        return birth_date
+
+    def clean_cep(self):
+        cep = self.cleaned_data.get('cep', '') or ''
+        digits = _only_digits(cep)
+        if digits and len(digits) != 8:
+            raise forms.ValidationError('CEP inválido. Informe os 8 dígitos.')
+        return _format_cep(cep) if digits else ''
+
 
 class StoreProfileForm(forms.ModelForm):
+    def clean_commercial_cep(self):
+        cep = self.cleaned_data.get('commercial_cep', '') or ''
+        digits = _only_digits(cep)
+        if digits and len(digits) != 8:
+            raise forms.ValidationError('CEP inválido. Informe os 8 dígitos.')
+        return _format_cep(cep) if digits else ''
+
     class Meta:
         model = StoreProfile
         fields = [
@@ -304,17 +348,29 @@ class StoreProfileForm(forms.ModelForm):
             'responsible_name', 'responsible_cpf', 'phone', 'email',
             'commercial_cep', 'commercial_address',
         ]
+        labels = {
+            'cnpj': 'CNPJ',
+            'razao_social': 'Razão social',
+            'fantasy_name': 'Nome fantasia',
+            'state_registration': 'Inscrição estadual',
+            'responsible_name': 'Nome do responsável',
+            'responsible_cpf': 'CPF do responsável',
+            'phone': 'Telefone',
+            'email': 'E-mail comercial',
+            'commercial_cep': 'CEP comercial',
+            'commercial_address': 'Endereço comercial',
+        }
         widgets = {
-            'cnpj': forms.TextInput(attrs={'class': 'form-control'}),
+            'cnpj': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00.000.000/0000-00'}),
             'razao_social': forms.TextInput(attrs={'class': 'form-control'}),
             'fantasy_name': forms.TextInput(attrs={'class': 'form-control'}),
             'state_registration': forms.TextInput(attrs={'class': 'form-control'}),
             'responsible_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'responsible_cpf': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'responsible_cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'commercial_cep': forms.TextInput(attrs={'class': 'form-control'}),
-            'commercial_address': forms.TextInput(attrs={'class': 'form-control'}),
+            'commercial_cep': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
+            'commercial_address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Rua, número, complemento'}),
         }
 
 
@@ -322,13 +378,13 @@ class IndividualRegistrationForm(forms.Form):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     cpf = forms.CharField(max_length=20)
-    birth_date = forms.DateField(required=False)
+    birth_date = forms.DateField(required=True)
     email = forms.EmailField()
     phone = forms.CharField(max_length=30, required=False)
     username = forms.CharField(max_length=150)
     password = forms.CharField(widget=forms.PasswordInput)
     confirm_password = forms.CharField(widget=forms.PasswordInput)
-    cep = forms.CharField(max_length=20, required=False)
+    cep = forms.CharField(max_length=10, required=False)
     address = forms.CharField(max_length=255, required=False)
 
     def clean_username(self):
@@ -351,6 +407,24 @@ class IndividualRegistrationForm(forms.Form):
         if 'password' in self.cleaned_data and confirm_password != self.cleaned_data.get('password'):
             raise forms.ValidationError('As senhas não coincidem.')
         return confirm_password
+
+    def clean_birth_date(self):
+        from datetime import date
+        birth_date = self.cleaned_data.get('birth_date')
+        if not birth_date:
+            raise forms.ValidationError('A data de nascimento é obrigatória.')
+        today = date.today()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        if age < 18:
+            raise forms.ValidationError('É necessário ter pelo menos 18 anos para se cadastrar.')
+        return birth_date
+
+    def clean_cep(self):
+        cep = self.cleaned_data.get('cep', '') or ''
+        digits = _only_digits(cep)
+        if digits and len(digits) != 8:
+            raise forms.ValidationError('CEP inválido. Informe os 8 dígitos.')
+        return _format_cep(cep) if digits else ''
 
     def clean_cpf(self):
         cpf = self.cleaned_data['cpf']
@@ -429,6 +503,13 @@ class StoreRegistrationForm(forms.Form):
         if not _is_valid_cpf(responsible_cpf):
             raise forms.ValidationError('CPF inválido.')
         return _format_cpf(responsible_cpf)
+
+    def clean_store_cep(self):
+        cep = self.cleaned_data.get('store_cep', '') or ''
+        digits = _only_digits(cep)
+        if digits and len(digits) != 8:
+            raise forms.ValidationError('CEP inválido. Informe os 8 dígitos.')
+        return _format_cep(cep) if digits else ''
 
     def clean_store_phone(self):
         store_phone = self.cleaned_data.get('store_phone', '')
@@ -627,19 +708,44 @@ class TradeProposalForm(forms.ModelForm):
         help_text='Adicione uma ou mais imagens da proposta (opcional).',
         label='Imagens'
     )
+    cash_amount = forms.CharField(
+        required=False,
+        label='Valor em dinheiro (R$)',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control js-money-brl',
+            'placeholder': 'R$ 0,00',
+            'autocomplete': 'off',
+        }),
+    )
+
     class Meta:
         model = TradeProposal
         fields = ['item_description', 'cash_amount', 'note']
+        labels = {
+            'item_description': 'Descrição do item',
+            'note': 'Observação',
+        }
         widgets = {
             'item_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descreva o produto que será oferecido na troca'}),
-            'cash_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Adicione detalhes da proposta'}),
         }
+
+    def clean_cash_amount(self):
+        raw = self.cleaned_data.get('cash_amount', '') or ''
+        raw = raw.replace('R$', '').strip()
+        if not raw or raw in ('0,00', ''):
+            return Decimal('0')
+        # Formato BR: "1.234,56" → "1234.56"
+        raw = raw.replace('.', '').replace(',', '.')
+        try:
+            return Decimal(raw)
+        except InvalidOperation:
+            raise forms.ValidationError('Informe um valor monetário válido.')
 
     def clean(self):
         cleaned_data = super().clean()
         item_description = cleaned_data.get('item_description', '').strip()
-        cash_amount = cleaned_data.get('cash_amount') or 0
+        cash_amount = cleaned_data.get('cash_amount') or Decimal('0')
 
         if not item_description and cash_amount == 0:
             raise forms.ValidationError('Informe um produto, um valor em dinheiro ou ambos.')

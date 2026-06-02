@@ -35,8 +35,12 @@
     <nav class="nav-buttons" id="main-nav" aria-label="Menu principal">
         <div class="nav-group">
             <div class="nav-group-title" data-toggle-for="account-links">
-                <span class="material-icons">person</span>
-                Conta
+                {% if user.is_authenticated and user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+                {% else %}
+                    <span class="material-icons">person</span>
+                {% endif %}
+                {% if user.is_authenticated %}{{ user.username }}{% else %}Conta{% endif %}
                 <span class="chev">▾</span>
             </div>
             <ul class="nav-group-list" id="account-links">
