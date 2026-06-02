@@ -73,9 +73,10 @@ def _is_trade_final(trade_request):
 
 
 def _get_trade_next_actor(trade_request, latest_proposal=None):
-    # If there is no proposal yet, the counterparty should act first (can accept/reject)
+    # The first proposal is always sent by the requester (who wants to trade for the
+    # listing). After that, the turn alternates between the two participants.
     if latest_proposal is None:
-        return trade_request.counterparty
+        return trade_request.requester
     return trade_request.counterparty if latest_proposal.proposer_id == trade_request.requester_id else trade_request.requester
 
 
@@ -84,21 +85,32 @@ def _get_trade_proposal_state(request, trade_request, proposals):
     is_active_negotiation = trade_request.status in [TradeRequest.PENDING, TradeRequest.NEGOTIATING]
     next_actor = None if _is_trade_final(trade_request) or not is_active_negotiation else _get_trade_next_actor(trade_request, latest_proposal)
     is_user_turn = bool(next_actor and request.user.id == next_actor.id)
+    is_requester = request.user.id == trade_request.requester_id
+    is_owner = request.user.id == trade_request.counterparty_id
+
+    # The listing owner is the only one who can accept a proposal (and only one made
+    # by the other side). A proposal can be rejected only once it exists.
+    can_accept_proposal = (
+        latest_proposal is not None
+        and is_active_negotiation
+        and is_owner
+        and latest_proposal.proposer_id != request.user.id
+    )
+
     return {
         'latest_proposal': latest_proposal,
         'next_actor': next_actor,
         'can_create_proposal': is_user_turn and is_active_negotiation,
-        'can_reject_trade': is_user_turn and is_active_negotiation,
-        'can_cancel_trade': request.user.id == trade_request.requester_id and is_active_negotiation,
+        'can_accept_proposal': can_accept_proposal,
+        'can_reject_trade': is_user_turn and is_active_negotiation and latest_proposal is not None,
+        'can_cancel_trade': is_requester and is_active_negotiation,
         'proposal_prompt': (
-            'Envie sua proposta inicial para iniciar a negociação.'
-            if latest_proposal is None and request.user.id == trade_request.requester_id
-            else 'Aguardando a proposta inicial do solicitante.'
+            'Descreva o que você oferece — um produto, um valor em dinheiro ou ambos — para iniciar a negociação.'
             if latest_proposal is None
-            else 'Envie um produto, um valor em dinheiro ou ambos para responder à proposta.'
+            else 'Responda com uma contraproposta: ajuste o produto, o valor ou ambos.'
         ),
         'proposal_button_label': (
-            'Enviar proposta inicial'
+            'Enviar proposta'
             if latest_proposal is None
             else 'Enviar contraproposta'
         ),
@@ -107,7 +119,9 @@ def _get_trade_proposal_state(request, trade_request, proposals):
             if is_user_turn
             else 'A troca já foi aprovada. Agora siga para o checkout.'
             if trade_request.status == TradeRequest.APPROVED
-            else 'Aguardando resposta do outro participante.'
+            else 'Aguardando o solicitante enviar a proposta inicial.'
+            if latest_proposal is None
+            else 'Aguardando a resposta do outro participante.'
         ),
     }
 
@@ -181,10 +195,12 @@ def trade_request_detail(request, pk):
             'kind': 'proposal',
             'created_at': proposal.created_at,
             'actor': proposal.proposer.username,
-            'title': 'Proposta enviada' if proposal.proposer_id == trade_request.requester_id else 'Contraproposta recebida',
+            'is_mine': proposal.proposer_id == request.user.id,
+            'title': 'Proposta' if proposal.proposer_id == trade_request.requester_id else 'Contraproposta',
             'description': proposal.item_description or 'Sem produto descrito.',
             'cash_amount': proposal.cash_amount,
             'note': proposal.note,
+            'images': list(proposal.images.all()),
         })
 
     for trade_message in trade_messages:
@@ -192,22 +208,26 @@ def trade_request_detail(request, pk):
             'kind': 'message',
             'created_at': trade_message.created_at,
             'actor': trade_message.sender.username,
-            'title': 'Mensagem na negociação',
+            'is_mine': trade_message.sender_id == request.user.id,
+            'title': 'Mensagem',
             'description': trade_message.content,
             'cash_amount': None,
             'note': '',
+            'images': [],
         })
 
     if hasattr(trade_request, 'fulfillment'):
         fulfillment = trade_request.fulfillment
         timeline_items.append({
-            'kind': 'fulfillment',
+            'kind': 'action',
             'created_at': fulfillment.created_at,
             'actor': trade_request.counterparty.username,
-            'title': 'Acordo pronto para checkout',
-            'description': 'A negociação foi aceita e está pronta para a etapa de entrega.',
+            'is_mine': False,
+            'title': 'Acordo fechado',
+            'description': 'A proposta foi aceita e a troca está pronta para a etapa de entrega.',
             'cash_amount': fulfillment.payment_amount,
             'note': fulfillment.agreed_proposal.item_description if fulfillment.agreed_proposal else '',
+            'images': [],
         })
 
     timeline_items.sort(key=lambda item: item['created_at'], reverse=True)
@@ -222,8 +242,11 @@ def trade_request_detail(request, pk):
         'latest_proposal': proposal_state['latest_proposal'],
         'next_actor': proposal_state['next_actor'],
         'can_create_proposal': proposal_state['can_create_proposal'],
+        'can_accept_proposal': proposal_state['can_accept_proposal'],
         'can_reject_trade': proposal_state['can_reject_trade'],
         'can_cancel_trade': proposal_state['can_cancel_trade'],
+        'is_owner': request.user.id == trade_request.counterparty_id,
+        'is_requester': request.user.id == trade_request.requester_id,
         'proposal_prompt': proposal_state['proposal_prompt'],
         'proposal_button_label': proposal_state['proposal_button_label'],
         'turn_message': proposal_state['turn_message'],
@@ -379,6 +402,11 @@ def trade_request_reject(request, pk):
         return redirect('trade_request_detail', pk=pk)
 
     latest_proposal = trade_request.proposals.order_by('-created_at', '-id').first()
+
+    if latest_proposal is None:
+        messages.error(request, 'Ainda não há proposta para recusar. Use "Cancelar" para desistir da negociação.')
+        return redirect('trade_request_detail', pk=pk)
+
     next_actor = _get_trade_next_actor(trade_request, latest_proposal)
 
     if request.user.id != next_actor.id:

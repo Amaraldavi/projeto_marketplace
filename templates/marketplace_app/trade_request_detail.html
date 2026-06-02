@@ -2,86 +2,6 @@
 
 {% block title %}Negociação #{{ trade_request.id }} — Tech Hub{% endblock %}
 
-{% block extra_css %}
-<style>
-    .trade-image-thumb {
-        border: 0;
-        padding: 0;
-        background: transparent;
-        cursor: pointer;
-        border-radius: 8px;
-        line-height: 0;
-    }
-
-    .trade-image-thumb img {
-        width: 64px;
-        height: 64px;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .trade-image-thumb:hover img {
-        transform: scale(1.05);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    .trade-image-modal {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 1.25rem;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 2000;
-    }
-
-    .trade-image-modal.open { display: flex; }
-
-    .trade-image-modal__panel {
-        position: relative;
-        max-width: min(96vw, 1000px);
-        max-height: 92vh;
-    }
-
-    .trade-image-modal__image {
-        display: block;
-        max-width: 100%;
-        max-height: 90vh;
-        border-radius: 12px;
-        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-    }
-
-    .trade-image-modal__close {
-        position: absolute;
-        top: -0.75rem;
-        right: -0.75rem;
-        width: 2.4rem;
-        height: 2.4rem;
-        border: 0;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.95);
-        color: #111;
-        font-size: 1.4rem;
-        line-height: 1;
-        cursor: pointer;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .trade-image-modal__caption {
-        margin-top: 0.65rem;
-        color: rgba(255,255,255,0.8);
-        text-align: center;
-        font-size: 0.88rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container">
 
@@ -110,6 +30,56 @@
         </div>
     </div>
 
+    {# ===================== BANNER DE STATUS ===================== #}
+    {% if trade_request.status == 'approved' %}
+        <div class="trade-status-banner is-success">
+            <span class="material-icons">check_circle</span>
+            <div class="trade-status-banner-text">
+                <strong>Proposta aceita!</strong>
+                <p>Agora os dois participantes precisam confirmar os dados de entrega para concluir a troca.</p>
+            </div>
+            <a href="{% url 'trade_checkout' trade_request.id %}" class="btn-secondary">
+                <span class="material-icons">local_shipping</span> Confirmar entrega
+            </a>
+        </div>
+    {% elif trade_request.status == 'completed' %}
+        <div class="trade-status-banner is-success">
+            <span class="material-icons">verified</span>
+            <div class="trade-status-banner-text">
+                <strong>Troca concluída</strong>
+                <p>Esta negociação foi finalizada com sucesso e já consta no seu histórico.</p>
+            </div>
+        </div>
+    {% elif trade_is_final %}
+        <div class="trade-status-banner is-muted">
+            <span class="material-icons">lock</span>
+            <div class="trade-status-banner-text">
+                <strong>Negociação encerrada</strong>
+                <p>Esta negociação foi {{ trade_request.get_status_display|lower }} e não aceita mais ações.</p>
+            </div>
+        </div>
+    {% elif can_accept_proposal or can_create_proposal %}
+        <div class="trade-status-banner is-active">
+            <span class="material-icons">touch_app</span>
+            <div class="trade-status-banner-text">
+                <strong>É a sua vez</strong>
+                <p>
+                    {% if can_accept_proposal %}Aceite a proposta atual ou responda com uma contraproposta no painel ao lado.
+                    {% elif latest_proposal %}Responda com uma contraproposta no painel ao lado.
+                    {% else %}Envie a primeira proposta no painel ao lado para iniciar a negociação.{% endif %}
+                </p>
+            </div>
+        </div>
+    {% else %}
+        <div class="trade-status-banner is-waiting">
+            <span class="material-icons">hourglass_top</span>
+            <div class="trade-status-banner-text">
+                <strong>Aguardando o outro participante</strong>
+                <p>{{ turn_message }}</p>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="trade-detail-grid">
 
         <!-- ======== COLUNA PRINCIPAL ======== -->
@@ -134,70 +104,47 @@
                     </div>
                     {% endif %}
                     <div class="info-row">
-                        <span class="material-icons">person</span>
-                        <strong>Solicitante</strong>
+                        <span class="material-icons">record_voice_over</span>
+                        <strong>Quem quer trocar</strong>
                         <span>
                             <a href="{% url 'user_profile' trade_request.requester.username %}" class="seller-link">{{ trade_request.requester.username }}</a>
+                            {% if is_requester %}<span class="trade-you-tag">você</span>{% endif %}
                         </span>
                     </div>
                     <div class="info-row">
                         <span class="material-icons">store</span>
-                        <strong>Contraparte</strong>
+                        <strong>Dono do anúncio</strong>
                         <span>
                             <a href="{% url 'user_profile' trade_request.counterparty.username %}" class="seller-link">{{ trade_request.counterparty.username }}</a>
+                            {% if is_owner %}<span class="trade-you-tag">você</span>{% endif %}
                         </span>
                     </div>
-                    {% if trade_request.initial_message %}
-                    <div class="info-row">
-                        <span class="material-icons">chat</span>
-                        <strong>Mensagem inicial</strong>
-                        <span style="color: var(--text-muted);">{{ trade_request.initial_message }}</span>
-                    </div>
-                    {% endif %}
                     {% if fulfillment %}
                     <div class="info-row">
                         <span class="material-icons">attach_money</span>
                         <strong>Valor combinado</strong>
                         <span style="color: var(--accent-cyan); font-weight: 700;">R$ {{ fulfillment.payment_amount|floatformat:2 }}</span>
                     </div>
-                    <div class="info-row">
-                        <span class="material-icons">payments</span>
-                        <strong>Pgto. combinado</strong>
-                        <span>{{ fulfillment.get_payment_method_display|default:'—' }}</span>
-                    </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Próximo passo: só quando aprovado -->
-            {% if fulfillment and trade_request.status == 'approved' %}
-            <div class="summary-card" style="margin-bottom: 1.25rem; border-color: rgba(0, 255, 136, 0.25); background: rgba(0, 255, 136, 0.04);">
-                <h3 style="color: var(--success-color);"><span class="material-icons">check_circle</span> Troca aceita!</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0 0 0.85rem; line-height: 1.55;">
-                    A proposta foi aceita. Agora cada participante precisa confirmar os dados de entrega na seção abaixo.
-                </p>
-                <a href="{% url 'trade_checkout' trade_request.id %}" class="btn-secondary" style="width: 100%; justify-content: center;">
-                    <span class="material-icons">local_shipping</span> Ir para confirmação de entrega
-                </a>
-            </div>
-            {% endif %}
-
-            <!-- Timeline -->
-            {% if timeline_items %}
-            <div class="summary-card" style="margin-bottom: 1.25rem;">
-                <h3><span class="material-icons">timeline</span> Linha do tempo</h3>
+            <!-- Histórico da negociação -->
+            <div class="summary-card">
+                <h3><span class="material-icons">timeline</span> Histórico da negociação</h3>
+                {% if timeline_items %}
                 <div class="trade-timeline">
                     {% for item in timeline_items %}
-                    <div class="timeline-item kind-{{ item.kind }}">
+                    <div class="timeline-item kind-{{ item.kind }}{% if item.is_mine %} is-mine{% endif %}">
                         <div class="timeline-dot"></div>
                         <div class="timeline-item-header">
-                            <span class="timeline-item-actor">{{ item.actor }}</span>
+                            <span class="timeline-item-actor">{{ item.actor }}{% if item.is_mine %} (você){% endif %}</span>
                             {% if item.kind == 'proposal' %}
-                                <span class="badge badge-info" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;">Proposta</span>
+                                <span class="badge badge-info" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;">{{ item.title }}</span>
                             {% elif item.kind == 'message' %}
                                 <span class="badge badge-approved" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;">Mensagem</span>
                             {% else %}
-                                <span class="badge badge-pending" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;">Ação</span>
+                                <span class="badge badge-pending" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;">{{ item.title }}</span>
                             {% endif %}
                             <span class="timeline-item-date">{{ item.created_at|date:'d/m/Y H:i' }}</span>
                         </div>
@@ -209,70 +156,32 @@
                             {% if item.note %}
                                 <p style="color: var(--text-muted); margin-top: 0.3rem;">{{ item.note }}</p>
                             {% endif %}
+                            {% if item.images %}
+                            <div class="timeline-images">
+                                {% for img in item.images %}
+                                <button
+                                    type="button"
+                                    class="trade-image-thumb js-trade-image-viewer"
+                                    data-full-src="{{ img.image.url }}"
+                                    data-caption="Imagem da proposta de {{ item.actor }}"
+                                >
+                                    <img src="{{ img.image.url }}" alt="Imagem da proposta">
+                                </button>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-            </div>
-            {% endif %}
-
-            <!-- Propostas com ações -->
-            {% if proposals %}
-            <div class="summary-card">
-                <h3><span class="material-icons">compare_arrows</span> Propostas</h3>
-                {% for proposal in proposals|slice:":5" %}
-                <div class="proposal-card {% if forloop.first %}is-latest{% endif %}">
-                    <div class="proposal-header">
-                        <span class="proposal-proposer">{{ proposal.proposer.username }}</span>
-                        <span class="proposal-date">{{ proposal.created_at|date:'d/m/Y H:i' }}</span>
-                    </div>
-                    <div class="proposal-body">
-                        {% if proposal.item_description %}
-                            <span><strong>Produto oferecido:</strong> {{ proposal.item_description }}</span>
-                        {% endif %}
-                        {% if proposal.cash_amount %}
-                            <span><strong>Dinheiro extra:</strong>
-                                <span style="color: var(--accent-cyan); font-weight: 600;">R$ {{ proposal.cash_amount|floatformat:2 }}</span>
-                            </span>
-                        {% endif %}
-                        {% if proposal.note %}
-                            <span style="color: var(--text-muted);">{{ proposal.note }}</span>
-                        {% endif %}
-                    </div>
-                    {% if proposal.images.all %}
-                    <div class="timeline-images">
-                        {% for img in proposal.images.all %}
-                        <button
-                            type="button"
-                            class="trade-image-thumb js-trade-image-viewer"
-                            data-full-src="{{ img.image.url }}"
-                            data-caption="Imagem da proposta de {{ proposal.proposer.username }}"
-                        >
-                            <img src="{{ img.image.url }}" alt="Imagem da proposta">
-                        </button>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if forloop.first and latest_proposal and not trade_is_final and user != proposal.proposer and user == trade_request.counterparty %}
-                    <div class="proposal-actions">
-                        <form method="post" action="{% url 'trade_proposal_accept' trade_request.id proposal.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn-secondary">
-                                <span class="material-icons">check_circle</span> Aceitar proposta
-                            </button>
-                        </form>
-                        <form method="post" action="{% url 'trade_request_reject' trade_request.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn-danger">
-                                <span class="material-icons">cancel</span> Recusar negociação
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
+                {% else %}
+                <div class="empty-state" style="padding: 2rem 1rem;">
+                    <span class="material-icons empty-icon">forum</span>
+                    <h3>A negociação ainda não começou</h3>
+                    <p>Assim que a primeira proposta for enviada, o histórico aparece aqui.</p>
                 </div>
-                {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
 
         </div>
 
@@ -282,12 +191,39 @@
             <!-- Card de ação contextual -->
             <div class="summary-card action-card" style="margin-bottom: 1.25rem;">
 
-                {% if can_create_proposal %}
+                {% if can_accept_proposal or can_create_proposal %}
                     <div class="action-card-label is-my-turn">
                         <span class="material-icons">touch_app</span> Sua vez de agir
                     </div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.55; margin: 0 0 1rem;">{{ proposal_prompt }}</p>
-                    <form method="post" action="{% url 'trade_proposal_create' trade_request.id %}" enctype="multipart/form-data">
+
+                    {% if can_accept_proposal %}
+                        <div class="latest-offer">
+                            <p class="latest-offer-title">
+                                <span class="material-icons">redeem</span>
+                                {{ latest_proposal.proposer.username }} ofereceu
+                            </p>
+                            {% if latest_proposal.item_description %}
+                                <p class="latest-offer-line"><span class="material-icons">inventory_2</span> {{ latest_proposal.item_description }}</p>
+                            {% endif %}
+                            {% if latest_proposal.cash_amount %}
+                                <p class="latest-offer-line"><span class="material-icons">payments</span> R$ {{ latest_proposal.cash_amount|floatformat:2 }} em dinheiro</p>
+                            {% endif %}
+                            {% if latest_proposal.note %}
+                                <p class="latest-offer-note">{{ latest_proposal.note }}</p>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'trade_proposal_accept' trade_request.id latest_proposal.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-secondary" style="width: 100%;">
+                                <span class="material-icons">check_circle</span> Aceitar proposta
+                            </button>
+                        </form>
+                        <div class="action-or"><span>ou faça uma contraproposta</span></div>
+                    {% endif %}
+
+                    {% if can_create_proposal %}
+                    <p class="action-prompt">{{ proposal_prompt }}</p>
+                    <form method="post" action="{% url 'trade_proposal_create' trade_request.id %}" enctype="multipart/form-data" class="proposal-form">
                         {% csrf_token %}
                         <div class="form-group">
                             {{ proposal_form.item_description.label_tag }}
@@ -309,12 +245,20 @@
                         </div>
                         <div class="form-group">
                             {{ proposal_form.images.label_tag }}
+                            <label class="proposal-file-label" for="{{ proposal_form.images.id_for_label }}">
+                                <span class="material-icons">add_photo_alternate</span>
+                                <span>Selecionar imagens</span>
+                            </label>
                             {{ proposal_form.images }}
+                            {% if proposal_form.images.errors %}
+                                <div class="field-error">{{ proposal_form.images.errors }}</div>
+                            {% endif %}
                         </div>
                         <button type="submit" class="btn-secondary" style="width: 100%;">
                             <span class="material-icons">send</span> {{ proposal_button_label }}
                         </button>
                     </form>
+                    {% endif %}
 
                 {% elif trade_request.status == 'approved' %}
                     <div class="action-card-label is-approved">
@@ -322,7 +266,7 @@
                     </div>
                     <div class="waiting-message" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); color: var(--text-gray);">
                         <span class="material-icons" style="color: var(--success-color);">local_shipping</span>
-                        <span>A negociação foi concluída. Agora confirme os dados de entrega na seção abaixo.</span>
+                        <span>A negociação foi concluída. Agora confirme os dados de entrega.</span>
                     </div>
                     <a href="{% url 'trade_checkout' trade_request.id %}" class="btn-secondary" style="width: 100%; margin-top: 0.85rem; justify-content: center;">
                         <span class="material-icons">local_shipping</span> Ir para entrega
@@ -349,19 +293,19 @@
 
                 {% if can_cancel_trade or can_reject_trade %}
                 <hr class="action-divider">
-                {% if can_cancel_trade %}
-                <form method="post" action="{% url 'trade_request_cancel' trade_request.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-danger" style="width: 100%;">
-                        <span class="material-icons">cancel</span> Cancelar troca
-                    </button>
-                </form>
-                {% endif %}
                 {% if can_reject_trade %}
-                <form method="post" action="{% url 'trade_request_reject' trade_request.id %}" style="margin-top: 0.5rem;">
+                <form method="post" action="{% url 'trade_request_reject' trade_request.id %}">
                     {% csrf_token %}
                     <button type="submit" class="btn-danger" style="width: 100%;">
                         <span class="material-icons">thumb_down</span> Recusar negociação
+                    </button>
+                </form>
+                {% endif %}
+                {% if can_cancel_trade %}
+                <form method="post" action="{% url 'trade_request_cancel' trade_request.id %}" {% if can_reject_trade %}style="margin-top: 0.5rem;"{% endif %}>
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger" style="width: 100%;">
+                        <span class="material-icons">cancel</span> Cancelar troca
                     </button>
                 </form>
                 {% endif %}
@@ -450,61 +394,63 @@
             <h3><span class="material-icons">edit_location</span> Seus dados de envio</h3>
             <form method="post" action="{% url 'trade_delivery' trade_request.id %}">
                 {% csrf_token %}
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_delivery_form.delivery_method.label_tag }}
-                        {{ user_delivery_form.delivery_method }}
+                <div class="checkout-address-fields">
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ user_delivery_form.delivery_method.label_tag }}
+                            {{ user_delivery_form.delivery_method }}
+                        </div>
+                        <div class="form-group">
+                            {{ user_delivery_form.recipient_name.label_tag }}
+                            {{ user_delivery_form.recipient_name }}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ user_delivery_form.recipient_phone.label_tag }}
+                            {{ user_delivery_form.recipient_phone }}
+                        </div>
+                        <div class="form-group">
+                            {{ user_delivery_form.postal_code.label_tag }}
+                            {{ user_delivery_form.postal_code }}
+                        </div>
                     </div>
                     <div class="form-group">
-                        {{ user_delivery_form.recipient_name.label_tag }}
-                        {{ user_delivery_form.recipient_name }}
+                        {{ user_delivery_form.street.label_tag }}
+                        {{ user_delivery_form.street }}
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ user_delivery_form.number.label_tag }}
+                            {{ user_delivery_form.number }}
+                        </div>
+                        <div class="form-group">
+                            {{ user_delivery_form.complement.label_tag }}
+                            {{ user_delivery_form.complement }}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ user_delivery_form.neighborhood.label_tag }}
+                            {{ user_delivery_form.neighborhood }}
+                        </div>
+                        <div class="form-group">
+                            {{ user_delivery_form.city.label_tag }}
+                            {{ user_delivery_form.city }}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ user_delivery_form.state.label_tag }}
+                            {{ user_delivery_form.state }}
+                        </div>
+                        <div class="form-group">
+                            {{ user_delivery_form.notes.label_tag }}
+                            {{ user_delivery_form.notes }}
+                        </div>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_delivery_form.recipient_phone.label_tag }}
-                        {{ user_delivery_form.recipient_phone }}
-                    </div>
-                    <div class="form-group">
-                        {{ user_delivery_form.postal_code.label_tag }}
-                        {{ user_delivery_form.postal_code }}
-                    </div>
-                </div>
-                <div class="form-group">
-                    {{ user_delivery_form.street.label_tag }}
-                    {{ user_delivery_form.street }}
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_delivery_form.number.label_tag }}
-                        {{ user_delivery_form.number }}
-                    </div>
-                    <div class="form-group">
-                        {{ user_delivery_form.complement.label_tag }}
-                        {{ user_delivery_form.complement }}
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_delivery_form.neighborhood.label_tag }}
-                        {{ user_delivery_form.neighborhood }}
-                    </div>
-                    <div class="form-group">
-                        {{ user_delivery_form.city.label_tag }}
-                        {{ user_delivery_form.city }}
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ user_delivery_form.state.label_tag }}
-                        {{ user_delivery_form.state }}
-                    </div>
-                    <div class="form-group">
-                        {{ user_delivery_form.notes.label_tag }}
-                        {{ user_delivery_form.notes }}
-                    </div>
-                </div>
-                <div style="margin-top: 0.5rem;">
+                <div style="margin-top: 1rem;">
                     <button type="submit" class="btn-secondary">
                         <span class="material-icons">save</span> Salvar dados de envio
                     </button>
@@ -527,38 +473,49 @@
 {% endblock %}
 
 {% block extra_js %}
-{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ---- Modal de visualização de imagem ----
     const modal = document.getElementById('trade-image-modal');
     const modalImage = document.getElementById('trade-image-modal-image');
     const modalCaption = document.getElementById('trade-image-modal-caption');
     const closeButton = document.getElementById('trade-image-modal-close');
 
-    if (!modal) return;
+    if (modal) {
+        const openModal = (src, caption) => {
+            modalImage.src = src;
+            modalCaption.textContent = caption || '';
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+            closeButton.focus();
+        };
 
-    const openModal = (src, caption) => {
-        modalImage.src = src;
-        modalCaption.textContent = caption || '';
-        modal.classList.add('open');
-        modal.setAttribute('aria-hidden', 'false');
-        closeButton.focus();
-    };
+        const closeModal = () => {
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            modalImage.src = '';
+            modalCaption.textContent = '';
+        };
 
-    const closeModal = () => {
-        modal.classList.remove('open');
-        modal.setAttribute('aria-hidden', 'true');
-        modalImage.src = '';
-        modalCaption.textContent = '';
-    };
+        document.querySelectorAll('.js-trade-image-viewer').forEach(btn => {
+            btn.addEventListener('click', () => openModal(btn.dataset.fullSrc, btn.dataset.caption));
+        });
 
-    document.querySelectorAll('.js-trade-image-viewer').forEach(btn => {
-        btn.addEventListener('click', () => openModal(btn.dataset.fullSrc, btn.dataset.caption));
-    });
+        closeButton.addEventListener('click', closeModal);
+        modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+    }
 
-    closeButton.addEventListener('click', closeModal);
-    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeModal(); });
+    // ---- Feedback no input de imagens da proposta ----
+    const fileInput = document.getElementById('{{ proposal_form.images.id_for_label }}');
+    const fileLabel = document.querySelector('.proposal-file-label span:last-child');
+    if (fileInput && fileLabel) {
+        const defaultText = fileLabel.textContent;
+        fileInput.addEventListener('change', () => {
+            const count = fileInput.files.length;
+            fileLabel.textContent = count ? `${count} imagem(ns) selecionada(s)` : defaultText;
+        });
+    }
 });
 </script>
 {% endblock %}

@@ -88,15 +88,9 @@
                 </div>
             </div>
 
-            <div style="margin-top: 0.85rem; padding: 0.85rem 1rem; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); background: rgba(255,255,255,0.02);">
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.2rem;">
-                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">lock</span>
-                    O pedido só é confirmado após clicar no botão ao lado.
-                </p>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
-                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">schedule</span>
-                    Referência expira em 15 minutos.
-                </p>
+            <div class="checkout-info-notice">
+                <p><span class="material-icons">lock</span> O pedido só é confirmado após clicar no botão ao lado.</p>
+                <p><span class="material-icons">schedule</span> Referência expira em 15 minutos.</p>
             </div>
         </div>
 
@@ -158,6 +152,11 @@
 
     {# ===================== COMPRA: PASSO 1 — FORMULÁRIO ===================== #}
     {% elif buy_items %}
+
+    {# Form envolve o grid inteiro + o card de endereço abaixo #}
+    <form method="post" id="checkout-form" novalidate>
+    {% csrf_token %}
+
     <div class="checkout-grid">
 
         <!-- Coluna esquerda: resumo do pedido -->
@@ -206,7 +205,7 @@
             {% endif %}
         </div>
 
-        <!-- Coluna direita: formulário -->
+        <!-- Coluna direita: métodos de pagamento e entrega -->
         <div class="checkout-summary-card">
 
             <!-- Indicador de passo -->
@@ -223,7 +222,7 @@
             </div>
 
             {% if form.non_field_errors %}
-            <div class="form-error-summary" style="margin-bottom: 1rem;">
+            <div class="form-error-summary" style="margin-bottom: 0;">
                 <p><strong>Corrija os erros abaixo:</strong></p>
                 <ul>
                     {% for error in form.non_field_errors %}
@@ -233,153 +232,169 @@
             </div>
             {% endif %}
 
-            <form method="post" id="checkout-form" novalidate>
-                {% csrf_token %}
-
-                <!-- PAGAMENTO -->
-                <div style="margin-bottom: 1.1rem;">
-                    <p class="checkout-section-label">
-                        <span class="material-icons">payments</span> Forma de pagamento
-                    </p>
-                    <div class="checkout-method-cards" id="payment-cards">
-                        <div class="checkout-method-card {% if form.payment_method.value == 'pix' %}selected{% endif %}" data-group="payment" data-value="pix" role="button" tabindex="0">
-                            <span class="material-icons">qr_code_2</span>
-                            <strong>PIX</strong>
-                            <p>Instantâneo</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'credit_card' %}selected{% endif %}" data-group="payment" data-value="credit_card" role="button" tabindex="0">
-                            <span class="material-icons">credit_card</span>
-                            <strong>Crédito</strong>
-                            <p>Parcelável</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'debit_card' %}selected{% endif %}" data-group="payment" data-value="debit_card" role="button" tabindex="0">
-                            <span class="material-icons">payment</span>
-                            <strong>Débito</strong>
-                            <p>À vista</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'bank_transfer' %}selected{% endif %}" data-group="payment" data-value="bank_transfer" role="button" tabindex="0">
-                            <span class="material-icons">account_balance</span>
-                            <strong>Transferência</strong>
-                            <p>TED/DOC</p>
-                        </div>
+            <!-- PAGAMENTO -->
+            <div style="margin-bottom: 1.1rem;">
+                <p class="checkout-section-label">
+                    <span class="material-icons">payments</span> Forma de pagamento
+                </p>
+                <div class="checkout-method-cards" id="payment-cards">
+                    <div class="checkout-method-card {% if form.payment_method.value == 'pix' %}selected{% endif %}" data-group="payment" data-value="pix" role="button" tabindex="0">
+                        <span class="material-icons">qr_code_2</span>
+                        <strong>PIX</strong>
+                        <p>Instantâneo</p>
                     </div>
-                    <div style="display:none;">{{ form.payment_method }}</div>
-                    {% if form.payment_method.errors %}<div class="field-error">{{ form.payment_method.errors }}</div>{% endif %}
-                </div>
-
-                <!-- ENTREGA -->
-                <div style="margin-bottom: 1.1rem;">
-                    <p class="checkout-section-label">
-                        <span class="material-icons">local_shipping</span> Forma de entrega
-                    </p>
-                    <div class="checkout-method-cards" id="delivery-cards">
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="delivery" data-value="pickup" role="button" tabindex="0">
-                            <span class="material-icons">store</span>
-                            <strong>Retirada</strong>
-                            <p>Presencial</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="delivery" data-value="seller_shipping" role="button" tabindex="0">
-                            <span class="material-icons">local_shipping</span>
-                            <strong>Frete</strong>
-                            <p>Pelo vendedor</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="delivery" data-value="platform_shipping" role="button" tabindex="0">
-                            <span class="material-icons">inventory_2</span>
-                            <strong>Correios</strong>
-                            <p>Plataforma</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="delivery" data-value="to_agree" role="button" tabindex="0">
-                            <span class="material-icons">handshake</span>
-                            <strong>A combinar</strong>
-                            <p>Com vendedor</p>
-                        </div>
+                    <div class="checkout-method-card {% if form.payment_method.value == 'credit_card' %}selected{% endif %}" data-group="payment" data-value="credit_card" role="button" tabindex="0">
+                        <span class="material-icons">credit_card</span>
+                        <strong>Crédito</strong>
+                        <p>Parcelável</p>
                     </div>
-                    <div style="display:none;">{{ form.delivery_method }}</div>
-                    {% if form.delivery_method.errors %}<div class="field-error">{{ form.delivery_method.errors }}</div>{% endif %}
-                </div>
-
-                <!-- ENDEREÇO (oculto para Retirada) -->
-                <div id="address-section">
-                    <p class="checkout-section-label" style="margin-bottom: 0.85rem;">
-                        <span class="material-icons">location_on</span> Endereço de entrega
-                    </p>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ form.recipient_name.label_tag }}
-                            {{ form.recipient_name }}
-                            {% if form.recipient_name.errors %}<div class="field-error">{{ form.recipient_name.errors }}</div>{% endif %}
-                        </div>
-                        <div class="form-group">
-                            {{ form.recipient_phone.label_tag }}
-                            {{ form.recipient_phone }}
-                            {% if form.recipient_phone.errors %}<div class="field-error">{{ form.recipient_phone.errors }}</div>{% endif %}
-                        </div>
+                    <div class="checkout-method-card {% if form.payment_method.value == 'debit_card' %}selected{% endif %}" data-group="payment" data-value="debit_card" role="button" tabindex="0">
+                        <span class="material-icons">payment</span>
+                        <strong>Débito</strong>
+                        <p>À vista</p>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ form.postal_code.label_tag }}
-                            {{ form.postal_code }}
-                            {% if form.postal_code.errors %}<div class="field-error">{{ form.postal_code.errors }}</div>{% endif %}
-                        </div>
-                        <div class="form-group">
-                            {{ form.state.label_tag }}
-                            {{ form.state }}
-                            {% if form.state.errors %}<div class="field-error">{{ form.state.errors }}</div>{% endif %}
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        {{ form.street.label_tag }}
-                        {{ form.street }}
-                        {% if form.street.errors %}<div class="field-error">{{ form.street.errors }}</div>{% endif %}
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ form.number.label_tag }}
-                            {{ form.number }}
-                            {% if form.number.errors %}<div class="field-error">{{ form.number.errors }}</div>{% endif %}
-                        </div>
-                        <div class="form-group">
-                            {{ form.complement.label_tag }}
-                            {{ form.complement }}
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ form.neighborhood.label_tag }}
-                            {{ form.neighborhood }}
-                            {% if form.neighborhood.errors %}<div class="field-error">{{ form.neighborhood.errors }}</div>{% endif %}
-                        </div>
-                        <div class="form-group">
-                            {{ form.city.label_tag }}
-                            {{ form.city }}
-                            {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
-                        </div>
+                    <div class="checkout-method-card {% if form.payment_method.value == 'bank_transfer' %}selected{% endif %}" data-group="payment" data-value="bank_transfer" role="button" tabindex="0">
+                        <span class="material-icons">account_balance</span>
+                        <strong>Transferência</strong>
+                        <p>TED/DOC</p>
                     </div>
                 </div>
+                <div style="display:none;">{{ form.payment_method }}</div>
+                {% if form.payment_method.errors %}<div class="field-error">{{ form.payment_method.errors }}</div>{% endif %}
+            </div>
 
-                <!-- OBSERVAÇÕES -->
-                <details style="margin-bottom: 1rem;">
-                    <summary style="font-size: 0.82rem; color: var(--text-muted); cursor: pointer; padding: 0.35rem 0; user-select: none;">
-                        Adicionar observação (opcional)
-                    </summary>
-                    <div class="form-group" style="margin-top: 0.5rem;">
+            <!-- ENTREGA -->
+            <div>
+                <p class="checkout-section-label">
+                    <span class="material-icons">local_shipping</span> Forma de entrega
+                </p>
+                <div class="checkout-method-cards" id="delivery-cards">
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="delivery" data-value="pickup" role="button" tabindex="0">
+                        <span class="material-icons">store</span>
+                        <strong>Retirada</strong>
+                        <p>Presencial</p>
+                    </div>
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="delivery" data-value="seller_shipping" role="button" tabindex="0">
+                        <span class="material-icons">local_shipping</span>
+                        <strong>Frete</strong>
+                        <p>Pelo vendedor</p>
+                    </div>
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="delivery" data-value="platform_shipping" role="button" tabindex="0">
+                        <span class="material-icons">inventory_2</span>
+                        <strong>Correios</strong>
+                        <p>Plataforma</p>
+                    </div>
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="delivery" data-value="to_agree" role="button" tabindex="0">
+                        <span class="material-icons">handshake</span>
+                        <strong>A combinar</strong>
+                        <p>Com vendedor</p>
+                    </div>
+                </div>
+                <div style="display:none;">{{ form.delivery_method }}</div>
+                {% if form.delivery_method.errors %}<div class="field-error">{{ form.delivery_method.errors }}</div>{% endif %}
+            </div>
+
+            <!-- Botão rápido para Retirada (sem endereço) -->
+            <div id="pickup-submit" style="display:none; margin-top: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem; font-size: 0.95rem;">
+                    <span class="material-icons">arrow_forward</span> Revisar pedido
+                </button>
+                <a href="{% url 'cart' %}" class="btn-details" style="width: 100%; justify-content: center; font-size: 0.85rem;">
+                    Voltar ao carrinho
+                </a>
+            </div>
+
+            <!-- Indicação para scroll ao endereço -->
+            <p id="address-hint" style="font-size: 0.8rem; color: var(--text-muted); margin: 1rem 0 0; display: flex; align-items: center; gap: 0.35rem;">
+                <span class="material-icons" style="font-size: 15px;">south</span>
+                Preencha o endereço de entrega abaixo
+            </p>
+
+        </div>
+    </div>
+
+    <!-- ENDEREÇO — card full-width abaixo do grid, oculto para Retirada -->
+    <div id="address-section" class="checkout-address-card">
+        <h3>
+            <span class="material-icons">location_on</span> Endereço de entrega
+        </h3>
+
+        <div class="checkout-address-grid">
+            <div class="form-group col-2">
+                {{ form.recipient_name.label_tag }}
+                {{ form.recipient_name }}
+                {% if form.recipient_name.errors %}<div class="field-error">{{ form.recipient_name.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.recipient_phone.label_tag }}
+                {{ form.recipient_phone }}
+                {% if form.recipient_phone.errors %}<div class="field-error">{{ form.recipient_phone.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                {{ form.postal_code.label_tag }}
+                {{ form.postal_code }}
+                {% if form.postal_code.errors %}<div class="field-error">{{ form.postal_code.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.state.label_tag }}
+                {{ form.state }}
+                {% if form.state.errors %}<div class="field-error">{{ form.state.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.number.label_tag }}
+                {{ form.number }}
+                {% if form.number.errors %}<div class="field-error">{{ form.number.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group col-3">
+                {{ form.street.label_tag }}
+                {{ form.street }}
+                {% if form.street.errors %}<div class="field-error">{{ form.street.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                {{ form.neighborhood.label_tag }}
+                {{ form.neighborhood }}
+                {% if form.neighborhood.errors %}<div class="field-error">{{ form.neighborhood.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.city.label_tag }}
+                {{ form.city }}
+                {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.complement.label_tag }}
+                {{ form.complement }}
+            </div>
+        </div>
+
+        <div class="checkout-address-footer">
+            <details class="checkout-notes-toggle">
+                <summary>
+                    <span class="material-icons">add_comment</span>
+                    Adicionar observação
+                    <span class="checkout-notes-optional">(opcional)</span>
+                </summary>
+                <div class="checkout-notes-content">
+                    <div class="form-group" style="margin: 0;">
                         {{ form.notes }}
                     </div>
-                </details>
+                </div>
+            </details>
 
-                <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem; font-size: 0.95rem;">
-                    Revisar pedido →
+            <div class="checkout-submit-row">
+                <button type="submit" class="btn-secondary">
+                    <span class="material-icons">arrow_forward</span> Revisar pedido
                 </button>
-            </form>
-
-            <div style="margin-top: 0.6rem;">
-                <a href="{% url 'cart' %}" class="btn-details" style="width: 100%; justify-content: center; font-size: 0.85rem;">
+                <a href="{% url 'cart' %}" class="btn-details">
                     Voltar ao carrinho
                 </a>
             </div>
         </div>
     </div>
+
+    </form>
     {% endif %}
 
     {% else %}
@@ -431,11 +446,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Mostrar/ocultar endereço conforme entrega ----
     const deliverySelect = document.getElementById('id_delivery_method');
     const addressSection = document.getElementById('address-section');
+    const pickupSubmit  = document.getElementById('pickup-submit');
+    const addressHint   = document.getElementById('address-hint');
 
     function toggleAddress() {
-        if (!deliverySelect || !addressSection) return;
+        if (!deliverySelect) return;
         const isPickup = deliverySelect.value === 'pickup';
-        addressSection.style.display = isPickup ? 'none' : '';
+        if (addressSection) addressSection.style.display = isPickup ? 'none' : '';
+        if (pickupSubmit)   pickupSubmit.style.display   = isPickup ? ''     : 'none';
+        if (addressHint)    addressHint.style.display    = isPickup ? 'none' : '';
     }
 
     if (deliverySelect) {

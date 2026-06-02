@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(python manage.py check --deploy)",
+      "Bash(python manage.py check)",
+      "Bash(powershell -Command \"\\(Get-Content static/css/style.css | Measure-Object -Line\\).Lines\")",
+      "Bash(python manage.py test marketplace_app.tests_trade_flow -v 1)",
+      "Bash(git stash *)"
     ]
   }
 }
