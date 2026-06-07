@@ -20,6 +20,12 @@ DEBUG = env.bool('DEBUG', default=True)
 # ALLOWED_HOSTS can be provided as a comma separated list in .env
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
+# Render injeta o host público em RENDER_EXTERNAL_HOSTNAME — registramos cedo para
+# que a checagem de ALLOWED_HOSTS em produção passe sem precisar setar à mão.
+RENDER_EXTERNAL_HOSTNAME = env('RENDER_EXTERNAL_HOSTNAME', default=None)
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 
 # =========================
 # APPS
@@ -83,16 +89,24 @@ WSGI_APPLICATION = 'marketplace.wsgi.application'
 # =========================
 # DATABASE
 # =========================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='marketplace_db'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default='1234'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+# Em produção (Render/Railway/Heroku) usa-se DATABASE_URL. Localmente, caímos
+# nas variáveis DB_* separadas. conn_max_age mantém conexões reutilizáveis.
+if env('DATABASE_URL', default=None):
+    DATABASES = {
+        'default': env.db('DATABASE_URL'),
     }
-}
+    DATABASES['default']['CONN_MAX_AGE'] = env.int('DB_CONN_MAX_AGE', default=600)
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default='marketplace_db'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='1234'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
+    }
 
 
 # =========================
@@ -211,3 +225,12 @@ if not DEBUG and not ALLOWED_HOSTS:
 # Defina no .env como lista separada por vírgula, ex.:
 #   CSRF_TRUSTED_ORIGINS=https://meusite.com,https://www.meusite.com
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
+
+# Confia no host do Render para CSRF e ajusta o header de proxy HTTPS.
+# (RENDER_EXTERNAL_HOSTNAME já foi adicionado a ALLOWED_HOSTS no topo do arquivo.)
+if RENDER_EXTERNAL_HOSTNAME:
+    origin = f'https://{RENDER_EXTERNAL_HOSTNAME}'
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+    # Atrás do proxy do Render, o HTTPS chega via X-Forwarded-Proto
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
