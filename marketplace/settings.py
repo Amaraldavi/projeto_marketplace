@@ -38,6 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Armazenamento de mídia na nuvem (Cloudinary)
+    'cloudinary_storage',
+    'cloudinary',
+
     # REMOVIDO: 'users'
     'marketplace_app',
 ]
@@ -164,6 +168,16 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
+
+# Mídia (imagens enviadas por usuários) no Cloudinary.
+# O disco da Render é efêmero — sem isso, as imagens somem a cada deploy.
+# Defina a variável de ambiente CLOUDINARY_URL na Render para ativar.
+# Sem ela (ex.: ambiente local), cai no FileSystemStorage padrão acima.
+CLOUDINARY_URL = env('CLOUDINARY_URL', default='')
+if CLOUDINARY_URL:
+    STORAGES['default'] = {
+        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    }
 
 
 # =========================
